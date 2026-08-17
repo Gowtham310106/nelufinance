@@ -2,38 +2,40 @@
 import mongoose from 'mongoose';
 import { env } from './env';
 
-const MAX_RETRIES = 5;
-const RETRY_DELAY_MS = 3000;
+// Cache connection promise for serverless functions (e.g. Vercel)
+let cachedConnection: typeof mongoose | null = null;
+let cachedPromise: Promise<typeof mongoose> | null = null;
 
-export async function connectDatabase(): Promise<void> {
-  let retries = 0;
+export async function connectDatabase(): Promise<typeof mongoose> {
+  // If already connected, return cached connection
+  if (mongoose.connection.readyState === 1) {
+    return mongoose;
+  }
 
-  while (retries < MAX_RETRIES) {
-    try {
-      await mongoose.connect(env.MONGODB_URI, {
-        dbName: 'vetrinel',
-      });
-      console.log('✅ MongoDB connected successfully');
+  if (cachedConnection) {
+    return cachedConnection;
+  }
 
-      mongoose.connection.on('error', (err) => {
-        console.error('MongoDB connection error:', err);
-      });
+  if (!cachedPromise) {
+    const opts: mongoose.ConnectOptions = {
+      dbName: 'vetrinel',
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    };
 
-      mongoose.connection.on('disconnected', () => {
-        console.warn('MongoDB disconnected. Attempting reconnect...');
-      });
+    cachedPromise = mongoose.connect(env.MONGODB_URI, opts).then((m) => {
+      cachedConnection = m;
+      console.log('✅ MongoDB Atlas connected successfully');
+      return m;
+    });
+  }
 
-      return;
-    } catch (error) {
-      retries++;
-      console.error(`❌ MongoDB connection attempt ${retries}/${MAX_RETRIES} failed:`, error);
-
-      if (retries === MAX_RETRIES) {
-        console.error('Failed to connect to MongoDB after maximum retries.');
-        process.exit(1);
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-    }
+  try {
+    cachedConnection = await cachedPromise;
+    return cachedConnection;
+  } catch (error) {
+    cachedPromise = null;
+    console.error('❌ MongoDB Atlas connection error:', error);
+    throw error;
   }
 }
