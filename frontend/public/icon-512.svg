@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="grain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fef3c7" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+  <g transform="translate(106, 86) scale(0.6)">
+    <!-- Rice paddy stalk / sack motif -->
+    <path d="M250 50 C220 150 180 280 250 450" stroke="#fef3c7" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <path d="M250 120 C200 90 120 110 160 160 C200 200 240 160 250 120 Z" fill="url(#grain)" stroke="#b45309" stroke-width="6"/>
+    <path d="M250 180 C300 150 380 170 340 220 C300 260 260 220 250 180 Z" fill="url(#grain)" stroke="#b45309" stroke-width="6"/>
+    <path d="M250 240 C190 210 110 230 150 280 C190 320 240 280 250 240 Z" fill="url(#grain)" stroke="#b45309" stroke-width="6"/>
+    <path d="M250 300 C310 270 390 290 350 340 C310 380 260 340 250 300 Z" fill="url(#grain)" stroke="#b45309" stroke-width="6"/>
+    <path d="M250 360 C180 330 100 350 140 400 C180 440 240 400 250 360 Z" fill="url(#grain)" stroke="#b45309" stroke-width="6"/>
+  </g>
+  <!-- Tamil V / Rice Grain Emblem text -->
+  <text x="256" y="440" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="900" text-anchor="middle" fill="#ffffff" letter-spacing="2">VETRINEL</text>
+</svg>

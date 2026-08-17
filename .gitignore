@@ -1,0 +1,38 @@
+# Root .gitignore for Vetrinel Monorepo
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Next.js & Build outputs
+.next/
+*/.next/
+dist/
+*/dist/
+build/
+*/build/
+out/
+*/out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*/.env
+*/.env.local
+!*.env.example
+
+# Uploads & Temporary files
+uploads/
+*/uploads/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tsbuildinfo

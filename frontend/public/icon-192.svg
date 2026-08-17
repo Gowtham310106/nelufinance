@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bg192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="grain192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fef3c7" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="48" fill="url(#bg192)" />
+  <g transform="translate(38, 28) scale(0.24)">
+    <path d="M250 50 C220 150 180 280 250 450" stroke="#fef3c7" stroke-width="22" stroke-linecap="round" fill="none"/>
+    <path d="M250 120 C200 90 120 110 160 160 C200 200 240 160 250 120 Z" fill="url(#grain192)" stroke="#b45309" stroke-width="8"/>
+    <path d="M250 180 C300 150 380 170 340 220 C300 260 260 220 250 180 Z" fill="url(#grain192)" stroke="#b45309" stroke-width="8"/>
+    <path d="M250 240 C190 210 110 230 150 280 C190 320 240 280 250 240 Z" fill="url(#grain192)" stroke="#b45309" stroke-width="8"/>
+    <path d="M250 300 C310 270 390 290 350 340 C310 380 260 340 250 300 Z" fill="url(#grain192)" stroke="#b45309" stroke-width="8"/>
+  </g>
+  <text x="96" y="165" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="900" text-anchor="middle" fill="#ffffff" letter-spacing="1">VETRINEL</text>
+</svg>
