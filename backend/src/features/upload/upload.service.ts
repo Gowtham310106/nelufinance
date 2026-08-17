@@ -2,7 +2,7 @@
 import sharp from 'sharp';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
 
 export interface UploadedImageResult {
   url: string;
@@ -15,7 +15,7 @@ export class UploadService {
   private s3Client: S3Client | null = null;
   private bucket: string = '';
   private publicUrl: string = '';
-  private localUploadDir: string = path.join(process.cwd(), 'uploads', 'adaku');
+  private localUploadDir: string;
 
   constructor() {
     const endpoint = process.env.CLOUDFLARE_R2_ENDPOINT;
@@ -23,6 +23,10 @@ export class UploadService {
     const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
     this.bucket = process.env.CLOUDFLARE_R2_BUCKET || '';
     this.publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || '';
+
+    // If running in Vercel / serverless environment, fallback to /tmp
+    const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
+    this.localUploadDir = path.join(baseDir, 'uploads', 'adaku');
 
     if (endpoint && accessKeyId && secretAccessKey && this.bucket) {
       this.s3Client = new S3Client({
@@ -35,9 +39,12 @@ export class UploadService {
       });
     }
 
-    // Ensure local directory exists as fallback
-    if (!fs.existsSync(this.localUploadDir)) {
-      fs.mkdirSync(this.localUploadDir, { recursive: true });
+    try {
+      if (!fs.existsSync(this.localUploadDir)) {
+        fs.mkdirSync(this.localUploadDir, { recursive: true });
+      }
+    } catch {
+      // Ignore filesystem permission error in read-only serverless environments
     }
   }
 
@@ -85,15 +92,28 @@ export class UploadService {
       };
     }
 
-    // 3. Fallback: Save to local disk
-    const localFilePath = path.join(this.localUploadDir, filename);
-    await fs.promises.writeFile(localFilePath, compressedBuffer);
+    // 3. Fallback: Save to local disk / /tmp
+    try {
+      if (!fs.existsSync(this.localUploadDir)) {
+        fs.mkdirSync(this.localUploadDir, { recursive: true });
+      }
+      const localFilePath = path.join(this.localUploadDir, filename);
+      await fs.promises.writeFile(localFilePath, compressedBuffer);
 
-    return {
-      url: `/uploads/adaku/${filename}`,
-      key: filename,
-      uploadedAt: new Date(),
-    };
+      return {
+        url: `/uploads/adaku/${filename}`,
+        key: filename,
+        uploadedAt: new Date(),
+      };
+    } catch {
+      // In-memory data URL fallback for serverless without R2
+      const base64 = compressedBuffer.toString('base64');
+      return {
+        url: `data:image/webp;base64,${base64}`,
+        key: filename,
+        uploadedAt: new Date(),
+      };
+    }
   }
 
   /**

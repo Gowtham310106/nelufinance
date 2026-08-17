@@ -1,6 +1,5 @@
 // src/lib/pdf-generator.ts
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+// Dynamic imports ensure jsPDF is never evaluated during SSR on server/Vercel
 import { AdakuKadanItem, AdakuPaymentItem } from "@/features/adaku/hooks/use-adaku";
 import { Customer, CustomerLedgerEntry } from "@/features/customers/hooks/use-customers";
 import { Sale } from "@/features/sales/hooks/use-sales";
@@ -12,9 +11,21 @@ export interface ShopInfo {
 }
 
 /**
+ * Helper to dynamically load jsPDF and autoTable safely on the client
+ */
+async function loadPdfModules() {
+  const { jsPDF } = await import("jspdf");
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = (autoTableModule as any).default || autoTableModule;
+  return { jsPDF, autoTable };
+}
+
+/**
  * 1. Generate Adaku Pawn Pledge Ticket PDF (அடகு ரசீது / சீட்டு)
  */
 export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: ShopInfo) {
+  const { jsPDF, autoTable } = await loadPdfModules();
+
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -138,6 +149,8 @@ export async function generateAdakuPaymentReceiptPDF(
   pledge: AdakuKadanItem,
   shop: ShopInfo
 ) {
+  const { jsPDF, autoTable } = await loadPdfModules();
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a5" });
 
   doc.setFont("helvetica", "bold");
@@ -197,6 +210,8 @@ export async function generateAdakuPaymentReceiptPDF(
  * 3. Generate Sales Bill Invoice PDF (விற்பனை ரசீது)
  */
 export async function generateSaleBillPDF(sale: Sale, shop: ShopInfo) {
+  const { jsPDF, autoTable } = await loadPdfModules();
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   // Header
@@ -276,6 +291,8 @@ export async function generateCustomerStatementPDF(
   entries: CustomerLedgerEntry[],
   shop: ShopInfo
 ) {
+  const { jsPDF, autoTable } = await loadPdfModules();
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   doc.setFont("helvetica", "bold");
