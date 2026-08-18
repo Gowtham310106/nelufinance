@@ -1,7 +1,6 @@
 // public/sw.js - Vetrinel PWA Service Worker
-const CACHE_NAME = 'vetrinel-v1';
+const CACHE_NAME = 'vetrinel-v2';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/icon-192.svg',
   '/icon-512.svg',
@@ -32,20 +31,34 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first with cache fallback for HTML and app shell
+  // 1. Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+
+  // 2. NEVER intercept API calls or cross-origin requests
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api')) {
+    return;
+  }
+
+  // 3. For local navigation (HTML pages), try network first, fallback to cached offline shell
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
-        return caches.match('/') || caches.match(event.request);
+        return caches.match('/manifest.webmanifest');
       })
     );
     return;
   }
 
-  // Cache first for static assets
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request);
-    })
-  );
+  // 4. Cache first for static local assets (icons, manifest, etc.)
+  if (STATIC_ASSETS.includes(url.pathname)) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        return cachedResponse || fetch(event.request);
+      })
+    );
+  }
 });
