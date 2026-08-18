@@ -35,7 +35,7 @@ export default function RegisterPage() {
         password,
         language: locale as "en" | "ta",
       });
-      router.push("/onboarding");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || t("auth.registerFailed"));
     } finally {
