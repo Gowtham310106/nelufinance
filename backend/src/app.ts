@@ -29,7 +29,24 @@ import adakuRouter from './features/adaku/adaku.routes';
 
 const app = express();
 
-// Enable CORS for all origins with credentials & headers
+// 1. Top-level CORS Middleware with explicit 200 preflight response
+app.use((req, res, next) => {
+  const origin = (req.headers.origin as string) || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization, Origin'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Standard cors fallback
 app.use(
   cors({
     origin: true,
@@ -45,16 +62,7 @@ app.use(
   })
 );
 
-// Explicit preflight handler
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.sendStatus(204);
-});
-
-// Security & parsing middleware
+// 2. Security & parsing middleware
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
