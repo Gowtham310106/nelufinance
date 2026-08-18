@@ -19,8 +19,10 @@ export async function connectDatabase(): Promise<typeof mongoose> {
   if (!cachedPromise) {
     const opts: mongoose.ConnectOptions = {
       dbName: 'vetrinel',
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 20000,
+      connectTimeoutMS: 20000,
       socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     };
 
     cachedPromise = mongoose.connect(env.MONGODB_URI, opts).then((m) => {
