@@ -278,6 +278,7 @@
     "expectedCash": "எதிர்பார்க்கப்படும் ரொக்கம்",
     "actualCash": "உண்மையான ரொக்கம்",
     "cashDifference": "வேறுபாடு",
+    "variance": "வித்தியாசம்",
     "closeDay": "இன்றை மூடு",
     "dayAlreadyClosed": "இன்று ஏற்கனவே மூடப்பட்டது",
     "reopenDay": "மீண்டும் திற",
@@ -288,6 +289,20 @@
     "addEmployee": "ஊழியர் சேர்",
     "editEmployee": "ஊழியர் திருத்து",
     "role": "பதவி",
+    "roles": {
+      "manager": "மேலாளர் (Manager)",
+      "cashier": "காசாளர் (Cashier)",
+      "labor": "சுமை தொழிலாளி (Worker)",
+      "driver": "ஓட்டுநர் (Driver)",
+      "helper": "உதவியாளர் (Helper)"
+    },
+    "salaryType": "சம்பள முறை",
+    "salaryTypes": {
+      "daily": "தினசரி சம்பளம்",
+      "monthly": "மாத சம்பளம்",
+      "per_bag": "மூட்டை கூலி"
+    },
+    "baseSalary": "அடிப்படை சம்பளம் / கூலி",
     "permissions": "அனுமதிகள்",
     "activity": "செயல்பாடு",
     "salesCount": "விற்பனை எண்ணிக்கை",

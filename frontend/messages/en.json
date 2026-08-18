@@ -278,6 +278,7 @@
     "expectedCash": "Expected Cash",
     "actualCash": "Actual Cash",
     "cashDifference": "Difference",
+    "variance": "Variance",
     "closeDay": "Close Day",
     "dayAlreadyClosed": "Day Already Closed",
     "reopenDay": "Reopen Day",
@@ -288,6 +289,20 @@
     "addEmployee": "Add Employee",
     "editEmployee": "Edit Employee",
     "role": "Role",
+    "roles": {
+      "manager": "Manager",
+      "cashier": "Cashier",
+      "labor": "Labor / Worker",
+      "driver": "Driver",
+      "helper": "Helper"
+    },
+    "salaryType": "Salary Type",
+    "salaryTypes": {
+      "daily": "Daily Wage",
+      "monthly": "Monthly Salary",
+      "per_bag": "Per Bag (மூட்டைக்கு)"
+    },
+    "baseSalary": "Base Salary / Wage",
     "permissions": "Permissions",
     "activity": "Activity",
     "salesCount": "Sales Count",
