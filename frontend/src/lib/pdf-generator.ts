@@ -21,7 +21,7 @@ async function loadPdfModules() {
 }
 
 /**
- * 1. Generate Adaku Pawn Pledge Ticket PDF (அடகு ரசீது / சீட்டு)
+ * 1. Generate Adaku Pawn Pledge Ticket PDF (Adaku Seettu / Pawn Ticket)
  */
 export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: ShopInfo) {
   const { jsPDF, autoTable } = await loadPdfModules();
@@ -37,7 +37,7 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
     minimumFractionDigits: 2,
   });
 
-  // Header
+  // Header Banner
   doc.setFillColor(245, 243, 239);
   doc.rect(0, 0, 148, 28, "F");
 
@@ -49,12 +49,12 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(80, 80, 80);
-  doc.text(`${shop.address || "Tamil Nadu"} • Ph: ${shop.phone || ""}`, 74, 15, { align: "center" });
+  doc.text(`${shop.address || "Tamil Nadu, India"} - Phone: ${shop.phone || ""}`, 74, 15, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(30, 30, 30);
-  doc.text("PAWN PLEDGE RECEIPT / அடகு ரசீது", 74, 23, { align: "center" });
+  doc.text("PAWN PLEDGE TICKET (ADAKU RECEIPT)", 74, 23, { align: "center" });
 
   doc.setDrawColor(200, 200, 200);
   doc.line(10, 28, 138, 28);
@@ -77,11 +77,11 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text(`Customer / வாடிக்கையாளர்: ${pledge.customerName}`, 14, 50);
+  doc.text(`Customer Name: ${pledge.customerName}`, 14, 50);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Phone: ${pledge.customerPhone} ${pledge.customerAadhaar ? `• Aadhaar/ID: ${pledge.customerAadhaar}` : ""}`, 14, 55);
+  doc.text(`Phone: ${pledge.customerPhone} ${pledge.customerAadhaar ? `| Aadhaar/ID: ${pledge.customerAadhaar}` : ""}`, 14, 55);
   if (pledge.customerAddress) {
     doc.text(`Address: ${pledge.customerAddress}`, 14, 60);
   }
@@ -92,7 +92,7 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
     theme: "grid",
     headStyles: { fillColor: [180, 83, 9], textColor: [255, 255, 255], fontSize: 8 },
     bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
-    head: [["Item Description (பொருள்)", "Karat", "Gross (g)", "Net (g / Pavan)"]],
+    head: [["Pledged Article / Item", "Purity", "Gross Wt (g)", "Net Wt (g / Pavan)"]],
     body: [
       [
         `${pledge.itemDescription} (${pledge.itemCount} item)`,
@@ -113,11 +113,11 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(180, 83, 9);
-  doc.text(`Loan Principal (அடகு கடன் தொகை):  Rs. ${loanRupees}`, 14, afterTableY + 8);
+  doc.text(`Loan Principal (Pledged Amount):  Rs. ${loanRupees}`, 14, afterTableY + 8);
 
   doc.setFontSize(8.5);
   doc.setTextColor(60, 60, 60);
-  doc.text(`Monthly Vatti Rate (மாத வட்டி): Rs. ${pledge.monthlyVattiRate.toFixed(2)} per Rs. 100/month`, 14, afterTableY + 14);
+  doc.text(`Monthly Vatti Rate: Rs. ${pledge.monthlyVattiRate.toFixed(2)} per Rs. 100 / month`, 14, afterTableY + 14);
   doc.text(`Status: ${pledge.status}`, 14, afterTableY + 19);
 
   // Terms & Conditions note
@@ -125,7 +125,7 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
   doc.setFontSize(6.5);
   doc.setTextColor(100, 100, 100);
   doc.text(
-    "Terms: 1. Monthly interest must be paid promptly. 2. Pledged items can be redeemed upon full payment of principal and interest. 3. Loss of pawn ticket must be notified immediately.",
+    "Terms: 1. Monthly interest must be paid promptly. 2. Pledged articles can be redeemed upon full settlement of principal and interest. 3. Safe vault custody guaranteed.",
     10,
     afterTableY + 30,
     { maxWidth: 128 }
@@ -142,7 +142,7 @@ export async function generateAdakuPawnTicketPDF(pledge: AdakuKadanItem, shop: S
 }
 
 /**
- * 2. Generate Adaku Payment Receipt PDF (வட்டி / பொருள் மீட்பு ரசீது)
+ * 2. Generate Adaku Payment Receipt PDF (Vatti & Redemption Receipt)
  */
 export async function generateAdakuPaymentReceiptPDF(
   payment: AdakuPaymentItem,
@@ -162,8 +162,8 @@ export async function generateAdakuPaymentReceiptPDF(
   doc.setTextColor(80, 80, 80);
   doc.text(
     payment.type === "FULL_REDEMPTION"
-      ? "COLLATERAL REDEMPTION RECEIPT (பொருள் மீட்பு ரசீது)"
-      : "VATTI INTEREST PAYMENT RECEIPT (வட்டி ரசீது)",
+      ? "COLLATERAL REDEMPTION RECEIPT (FULL SETTLEMENT)"
+      : "VATTI INTEREST PAYMENT RECEIPT",
     74,
     18,
     { align: "center" }
@@ -185,7 +185,7 @@ export async function generateAdakuPaymentReceiptPDF(
     bodyStyles: { fontSize: 8 },
     head: [["Particulars", "Details", "Amount (Rs.)"]],
     body: [
-      ["Pledged Item", `${pledge.itemDescription} (${pledge.netWeightGrams}g)`, "-"],
+      ["Pledged Article", `${pledge.itemDescription} (${pledge.netWeightGrams}g)`, "-"],
       ["Interest Payment", `${payment.monthsCovered || 1} month(s) interest`, `Rs. ${(payment.interestAmountPaise / 100).toFixed(2)}`],
       ["Principal Payment", payment.type === "FULL_REDEMPTION" ? "Full Loan Repayment" : "Partial Repayment", `Rs. ${(payment.principalAmountPaise / 100).toFixed(2)}`],
       ["Total Paid", `Mode: ${payment.paymentMethod.toUpperCase()}`, `Rs. ${(payment.totalPaidPaise / 100).toFixed(2)}`],
@@ -207,7 +207,7 @@ export async function generateAdakuPaymentReceiptPDF(
 }
 
 /**
- * 3. Generate Sales Bill Invoice PDF (விற்பனை ரசீது)
+ * 3. Generate Sales Bill Invoice PDF (Tax Invoice / Sales Bill)
  */
 export async function generateSaleBillPDF(sale: Sale, shop: ShopInfo) {
   const { jsPDF, autoTable } = await loadPdfModules();
@@ -222,8 +222,8 @@ export async function generateSaleBillPDF(sale: Sale, shop: ShopInfo) {
 
   doc.setFontSize(9);
   doc.setTextColor(80, 80, 80);
-  doc.text(`${shop.address || "Tamil Nadu"} • Ph: ${shop.phone || ""}`, 105, 22, { align: "center" });
-  doc.text("TAX INVOICE / SALES BILL (விற்பனை ரசீது)", 105, 28, { align: "center" });
+  doc.text(`${shop.address || "Tamil Nadu, India"} - Phone: ${shop.phone || ""}`, 105, 22, { align: "center" });
+  doc.text("TAX INVOICE / SALES BILL", 105, 28, { align: "center" });
 
   doc.setDrawColor(200, 200, 200);
   doc.line(14, 32, 196, 32);
@@ -233,8 +233,8 @@ export async function generateSaleBillPDF(sale: Sale, shop: ShopInfo) {
   doc.setTextColor(30, 30, 30);
   doc.text(`Bill No: ${sale.transactionNumber}`, 14, 38);
   doc.text(`Date: ${new Date(sale.date).toLocaleDateString("en-IN")}`, 140, 38);
-  doc.text(`Customer: ${sale.customerName || "Cash / Walk-in"}`, 14, 44);
-  doc.text(`Payment: ${sale.paymentMethod.toUpperCase()}`, 140, 44);
+  doc.text(`Customer: ${sale.customerName || "Cash / Walk-in Customer"}`, 14, 44);
+  doc.text(`Payment Mode: ${sale.paymentMethod.toUpperCase()}`, 140, 44);
 
   // Items Table
   const tableRows = sale.items.map((item, index) => [
@@ -278,13 +278,13 @@ export async function generateSaleBillPDF(sale: Sale, shop: ShopInfo) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.text("Thank you for your business! / நன்றி மீண்டும் வருக!", 105, finalY + 40, { align: "center" });
+  doc.text("Thank you for your business! Please visit again.", 105, finalY + 40, { align: "center" });
 
   doc.save(`Sale_Bill_${sale.transactionNumber}.pdf`);
 }
 
 /**
- * 4. Generate Customer Statement PDF (கணக்கு அறிக்கை)
+ * 4. Generate Customer Statement PDF (Statement of Account / Ledger)
  */
 export async function generateCustomerStatementPDF(
   customer: Customer,
@@ -302,7 +302,7 @@ export async function generateCustomerStatementPDF(
 
   doc.setFontSize(10);
   doc.setTextColor(80, 80, 80);
-  doc.text(`CUSTOMER STATEMENT OF ACCOUNT (வாடிக்கையாளர் கணக்கு அறிக்கை)`, 105, 23, { align: "center" });
+  doc.text("CUSTOMER STATEMENT OF ACCOUNT (LEDGER)", 105, 23, { align: "center" });
 
   doc.setDrawColor(200, 200, 200);
   doc.line(14, 28, 196, 28);
@@ -328,7 +328,7 @@ export async function generateCustomerStatementPDF(
     theme: "grid",
     headStyles: { fillColor: [180, 83, 9], textColor: [255, 255, 255], fontSize: 8.5 },
     bodyStyles: { fontSize: 8 },
-    head: [["Date", "Txn No", "Description", "Debit (+)", "Credit (-)", "Running Bal (Rs.)"]],
+    head: [["Date", "Ref No", "Particulars / Description", "Debit (+)", "Credit (-)", "Running Bal (Rs.)"]],
     body: tableRows,
     margin: { left: 14, right: 14 },
   });
