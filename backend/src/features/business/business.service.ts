@@ -86,7 +86,7 @@ export class BusinessService {
       } as any;
     }
 
-    return Business.findByIdAndUpdate(businessId, { $set: input }, { new: true });
+    return Business.findByIdAndUpdate(businessId, { $set: input }, { returnDocument: 'after' });
   }
 }
 

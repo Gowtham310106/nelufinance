@@ -23,7 +23,13 @@ export function validate(schemas: ValidationSchemas) {
         req.params = schemas.params.parse(req.params) as any;
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query) as any;
+        // Express 5 exposes req.query as a getter only — plain assignment throws
+        Object.defineProperty(req, 'query', {
+          value: schemas.query.parse(req.query),
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       next();
     } catch (error) {

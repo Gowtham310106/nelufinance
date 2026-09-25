@@ -82,7 +82,8 @@ export class CustomerController {
     try {
       const businessId = (req as any).businessId;
       const { rate, asOfDate } = req.query;
-      const parsedRate = rate ? parseFloat(rate as string) : 2.0;
+      const parsedRate =
+        rate !== undefined && rate !== '' ? parseFloat(rate as string) : undefined;
       const vatti = await customerService.calculateVatti(
         businessId,
         req.params.id as string,

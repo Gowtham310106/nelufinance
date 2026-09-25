@@ -9,6 +9,7 @@ import { Supplier } from '../../models/supplier.model';
 import { generateTransactionNumber } from '../../services/transaction-number.service';
 import { createAuditLog } from '../../services/audit.service';
 import { CreateWeightReconciliationInput } from './weight-reconciliation.validators';
+import { parseDateBound } from '../../utils/query';
 
 export class WeightReconciliationService {
   async create(
@@ -16,8 +17,6 @@ export class WeightReconciliationService {
     userId: string,
     input: CreateWeightReconciliationInput
   ): Promise<IWeightReconciliation> {
-    const txnNumber = await generateTransactionNumber(businessId, 'WRC');
-
     const product = await Product.findOne({
       _id: new Types.ObjectId(input.productId),
       businessId: new Types.ObjectId(businessId),
@@ -33,10 +32,14 @@ export class WeightReconciliationService {
         _id: new Types.ObjectId(input.supplierId),
         businessId: new Types.ObjectId(businessId),
       });
-      if (supplier) {
-        supplierName = supplier.name;
+      if (!supplier) {
+        throw Object.assign(new Error('Supplier not found'), { status: 404 });
       }
+      supplierName = supplier.name;
     }
+
+    const recordDate = input.date ? parseDateBound(input.date, 'start') : new Date();
+    const txnNumber = await generateTransactionNumber(businessId, 'WRC');
 
     const netWeighbridge = input.grossWeightKg - input.tareWeightKg;
     const bagCalculated = input.bagCount * input.bagStandardWeightKg;
@@ -54,8 +57,6 @@ export class WeightReconciliationService {
     } else if (input.actionTaken === 'DISPUTED') {
       finalWeight = bagCalculated;
     }
-
-    const recordDate = input.date ? new Date(input.date) : new Date();
 
     const record = await WeightReconciliation.create({
       businessId: new Types.ObjectId(businessId),

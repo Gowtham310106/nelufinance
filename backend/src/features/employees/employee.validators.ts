@@ -7,7 +7,7 @@ export const createEmployeeSchema = z.object({
   phone: z.string().min(10, 'Valid phone number is required').max(15).trim(),
   role: z.enum(['manager', 'cashier', 'labor', 'driver', 'helper']).default('labor'),
   salaryType: z.enum(['daily', 'monthly', 'per_bag']).default('daily'),
-  baseSalaryPaise: z.number().nonnegative().default(0),
+  baseSalaryPaise: z.number().int().nonnegative().default(0),
   notes: z.string().max(500).optional().default(''),
 });
 
@@ -16,17 +16,20 @@ export const updateEmployeeSchema = z.object({
   phone: z.string().min(10).max(15).trim().optional(),
   role: z.enum(['manager', 'cashier', 'labor', 'driver', 'helper']).optional(),
   salaryType: z.enum(['daily', 'monthly', 'per_bag']).optional(),
-  baseSalaryPaise: z.number().nonnegative().optional(),
+  baseSalaryPaise: z.number().int().nonnegative().optional(),
   notes: z.string().max(500).optional(),
   active: z.boolean().optional(),
 });
 
 export const recordEmployeeTransactionSchema = z.object({
   type: z.enum(['ADVANCE_GIVEN', 'SALARY_PAID', 'ADVANCE_DEDUCTED']),
-  amountPaise: z.number().positive('Amount must be greater than 0'),
+  amountPaise: z.number().int('Amount must be in whole paise').positive('Amount must be greater than 0'),
   paymentMethod: z.enum(PAYMENT_METHODS).default('cash'),
   notes: z.string().max(500).optional().default(''),
-  date: z.string().optional(),
+  date: z
+    .string()
+    .refine((s) => !isNaN(new Date(s).getTime()), 'Invalid date')
+    .optional(),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;

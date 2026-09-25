@@ -1,5 +1,6 @@
 // src/services/transaction-number.service.ts
 import mongoose from 'mongoose';
+import { todayIst } from '../utils/query';
 
 /**
  * Counter collection for auto-incrementing transaction numbers per business per day.
@@ -24,8 +25,8 @@ export async function generateTransactionNumber(
   businessId: string,
   prefix: TransactionPrefix
 ): Promise<string> {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  // Numbers follow the business's (IST) calendar day, not UTC
+  const dateStr = todayIst().replace(/-/g, ''); // YYYYMMDD
   const counterId = `${businessId}:${prefix}:${dateStr}`;
 
   const counter = await Counter.findOneAndUpdate(

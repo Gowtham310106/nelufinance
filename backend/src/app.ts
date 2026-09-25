@@ -29,6 +29,9 @@ import adakuRouter from './features/adaku/adaku.routes';
 
 const app = express();
 
+// Behind Vercel's proxy — use the real client IP for rate limiting
+app.set('trust proxy', 1);
+
 // 1. Top-level CORS Middleware with explicit 200 preflight response
 app.use((req, res, next) => {
   const origin = (req.headers.origin as string) || '*';

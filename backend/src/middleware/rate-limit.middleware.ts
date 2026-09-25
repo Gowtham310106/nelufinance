@@ -1,10 +1,10 @@
 // src/middleware/rate-limit.middleware.ts
 import rateLimit from 'express-rate-limit';
 
-/** General API rate limit: 200 requests per 15 minutes */
+/** General API rate limit: 1000 requests per 15 minutes (each app screen fires several queries) */
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 200,
+  limit: 1000,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',

@@ -12,8 +12,11 @@ Vetrinel can be deployed to **Vercel** for both Frontend (Next.js) and Backend (
    - **Root Directory**: Click *Edit* and select **`backend`**.
    - **Framework Preset**: Select **Other** (Vercel automatically detects `vercel.json` and `api/index.ts`).
 4. In **Environment Variables**, add:
-   - `MONGODB_URI`: `mongodb+srv://gowtham310106_db_user:deYHMuJgifSEdk1i@nelufinance.gxdk4fu.mongodb.net/vetrinel?retryWrites=true&w=majority`
-   - `JWT_SECRET`: `vetrinel_super_secure_jwt_secret_key_2026_tamilnadu_rice_trading_system`
+   - `MONGODB_URI`: your MongoDB Atlas connection string (`mongodb+srv://<user>:<password>@<cluster>.mongodb.net/vetrinel?retryWrites=true&w=majority`)
+   - `JWT_SECRET`: a long random string (at least 32 characters), e.g. the output of `openssl rand -hex 32`
+   - `ENABLE_DEMO_SEED` (optional): set to `true` only on a demo deployment to allow the "Load demo data" button
+
+   > Both `MONGODB_URI` and `JWT_SECRET` are **required** in production — the API refuses to start without them. Never commit real values to the repository.
    - `NODE_ENV`: `production`
 5. Click **Deploy**.
 6. Once deployed, copy your backend URL (e.g., `https://nelufinance-backend.vercel.app`).

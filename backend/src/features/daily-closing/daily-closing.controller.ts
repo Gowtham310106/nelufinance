@@ -19,7 +19,12 @@ export class DailyClosingController {
     try {
       const businessId = (req as any).businessId;
       const userId = req.user!.userId;
-      const closing = await dailyClosingService.submitClosing(businessId, userId, req.body);
+      const closing = await dailyClosingService.submitClosing(
+        businessId,
+        userId,
+        req.user!.role,
+        req.body
+      );
       sendSuccess(res, closing, 'Daily closing saved successfully', 201);
     } catch (error) {
       next(error);

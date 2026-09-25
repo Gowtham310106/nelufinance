@@ -1,5 +1,6 @@
 // src/features/products/product.validators.ts
 import { z } from 'zod';
+import { paiseAmount } from '../../utils/validation';
 import { PRODUCT_CATEGORIES, WEIGHT_UNITS } from '../../config/constants';
 
 export const createProductSchema = z.object({
@@ -7,8 +8,8 @@ export const createProductSchema = z.object({
   nameTamil: z.string().max(100).trim().optional().default(''),
   category: z.enum(PRODUCT_CATEGORIES).default('other'),
   unit: z.enum(WEIGHT_UNITS).default('kg'),
-  purchasePricePaise: z.number().min(0).default(0),
-  sellingPricePaise: z.number().min(0).default(0),
+  purchasePricePaise: paiseAmount().default(0),
+  sellingPricePaise: paiseAmount().default(0),
   initialStockKg: z.number().min(0).default(0),
   minimumStockKg: z.number().min(0).default(50),
 });
@@ -18,8 +19,8 @@ export const updateProductSchema = z.object({
   nameTamil: z.string().max(100).trim().optional(),
   category: z.enum(PRODUCT_CATEGORIES).optional(),
   unit: z.enum(WEIGHT_UNITS).optional(),
-  purchasePricePaise: z.number().min(0).optional(),
-  sellingPricePaise: z.number().min(0).optional(),
+  purchasePricePaise: paiseAmount().optional(),
+  sellingPricePaise: paiseAmount().optional(),
   minimumStockKg: z.number().min(0).optional(),
   active: z.boolean().optional(),
 });

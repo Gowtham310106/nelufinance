@@ -4,6 +4,7 @@ import { Product, IProduct } from '../../models/product.model';
 import { InventoryTransaction } from '../../models/inventory-transaction.model';
 import { createAuditLog } from '../../services/audit.service';
 import { CreateProductInput, UpdateProductInput } from './product.validators';
+import { searchRegex } from '../../utils/query';
 
 export class ProductService {
   async create(businessId: string, userId: string, input: CreateProductInput): Promise<IProduct> {
@@ -63,8 +64,8 @@ export class ProductService {
     }
 
     if (options.search) {
-      const searchRegex = new RegExp(options.search, 'i');
-      filter.$or = [{ name: searchRegex }, { nameTamil: searchRegex }];
+      const regex = searchRegex(options.search);
+      filter.$or = [{ name: regex }, { nameTamil: regex }];
     }
 
     return Product.find(filter).sort({ name: 1 });
@@ -92,10 +93,10 @@ export class ProductService {
       throw Object.assign(new Error('Product not found'), { status: 404 });
     }
 
-    const updated = await Product.findByIdAndUpdate(
-      productId,
+    const updated = await Product.findOneAndUpdate(
+      { _id: existing._id, businessId: new Types.ObjectId(businessId) },
       { $set: input },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     await createAuditLog({
@@ -117,7 +118,7 @@ export class ProductService {
         businessId: new Types.ObjectId(businessId),
       },
       { active: false },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!result) return false;

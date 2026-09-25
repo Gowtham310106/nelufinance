@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { Supplier, ISupplier } from '../../models/supplier.model';
 import { createAuditLog } from '../../services/audit.service';
 import { CreateSupplierInput, UpdateSupplierInput } from './supplier.validators';
+import { searchRegex } from '../../utils/query';
 
 export class SupplierService {
   async create(businessId: string, userId: string, input: CreateSupplierInput): Promise<ISupplier> {
@@ -32,7 +33,7 @@ export class SupplierService {
     const filter: any = { businessId: new Types.ObjectId(businessId), active: true };
 
     if (search) {
-      const regex = new RegExp(search, 'i');
+      const regex = searchRegex(search);
       filter.$or = [{ name: regex }, { phone: regex }];
     }
 
@@ -58,7 +59,7 @@ export class SupplierService {
         businessId: new Types.ObjectId(businessId),
       },
       { $set: input },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (updated) {

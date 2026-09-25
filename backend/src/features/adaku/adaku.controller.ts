@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { adakuService } from './adaku.service';
 import { sendSuccess, sendError } from '../../utils/api-response';
+import { createAdakuSchema } from './adaku.validators';
 
 export class AdakuController {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -10,18 +11,41 @@ export class AdakuController {
       const userId = req.user!.userId;
 
       // Parse JSON body fields if sent as multipart form-data
-      const body = typeof req.body.data === 'string' ? JSON.parse(req.body.data) : req.body;
+      let body: any;
+      try {
+        body = typeof req.body?.data === 'string' ? JSON.parse(req.body.data) : { ...(req.body ?? {}) };
+      } catch {
+        sendError(res, 'Malformed JSON in "data" field', 400);
+        return;
+      }
+      if (!body || typeof body !== 'object') {
+        sendError(res, 'Request body is required', 400);
+        return;
+      }
       // Also coerce numerical fields if passed directly as form fields
-      if (typeof body.grossWeightGrams === 'string') body.grossWeightGrams = parseFloat(body.grossWeightGrams);
-      if (typeof body.stoneWeightGrams === 'string') body.stoneWeightGrams = parseFloat(body.stoneWeightGrams);
-      if (typeof body.netWeightGrams === 'string') body.netWeightGrams = parseFloat(body.netWeightGrams);
-      if (typeof body.loanAmountPaise === 'string') body.loanAmountPaise = parseInt(body.loanAmountPaise, 10);
-      if (typeof body.marketValuePaise === 'string') body.marketValuePaise = parseInt(body.marketValuePaise, 10);
-      if (typeof body.monthlyVattiRate === 'string') body.monthlyVattiRate = parseFloat(body.monthlyVattiRate);
-      if (typeof body.itemCount === 'string') body.itemCount = parseInt(body.itemCount, 10);
+      const numericFields = [
+        'grossWeightGrams',
+        'stoneWeightGrams',
+        'netWeightGrams',
+        'monthlyVattiRate',
+        'loanAmountPaise',
+        'marketValuePaise',
+        'itemCount',
+      ];
+      for (const key of numericFields) {
+        if (typeof body[key] === 'string' && body[key].trim() !== '') body[key] = Number(body[key]);
+      }
+
+      // Validate before any image is processed/uploaded so a bad request leaves no orphaned files
+      const parsed = createAdakuSchema.safeParse(body);
+      if (!parsed.success) {
+        const messages = parsed.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`);
+        sendError(res, messages.join('; '), 422);
+        return;
+      }
 
       const files = req.files as Express.Multer.File[] | undefined;
-      const adaku = await adakuService.create(businessId, userId, body, files);
+      const adaku = await adakuService.create(businessId, userId, parsed.data, files);
 
       sendSuccess(res, adaku, 'Pawn pledge loan created successfully', 201);
     } catch (error: any) {

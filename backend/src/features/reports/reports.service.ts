@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { Sale } from '../../models/sale.model';
 import { Purchase } from '../../models/purchase.model';
 import { Expense } from '../../models/expense.model';
+import { parseDateBound, todayIst } from '../../utils/query';
 
 export interface ProfitLossReport {
   period: {
@@ -44,6 +45,20 @@ export interface SalesAnalyticsReport {
   }[];
 }
 
+/** Report period: explicit bounds, or the current calendar month in IST by default. */
+function resolveReportRange(startDateStr?: string, endDateStr?: string) {
+  const today = todayIst(); // YYYY-MM-DD
+  const [y, m] = today.split('-').map(Number);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const monthEnd = `${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}`;
+
+  return {
+    startDate: parseDateBound(startDateStr || monthStart, 'start'),
+    endDate: parseDateBound(endDateStr || monthEnd, 'end'),
+  };
+}
+
 export class ReportsService {
   async getProfitLoss(
     businessId: string,
@@ -53,9 +68,7 @@ export class ReportsService {
     const bId = new Types.ObjectId(businessId);
 
     // Default: this month
-    const now = new Date();
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
-    const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const { startDate, endDate } = resolveReportRange(startDateStr, endDateStr);
 
     const dateFilter = { $gte: startDate, $lte: endDate };
 
@@ -114,9 +127,7 @@ export class ReportsService {
   ): Promise<SalesAnalyticsReport> {
     const bId = new Types.ObjectId(businessId);
 
-    const now = new Date();
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(now.getFullYear(), now.getMonth(), 1);
-    const endDate = endDateStr ? new Date(endDateStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const { startDate, endDate } = resolveReportRange(startDateStr, endDateStr);
 
     const sales = await Sale.find({
       businessId: bId,

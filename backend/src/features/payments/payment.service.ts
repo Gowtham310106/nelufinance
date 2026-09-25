@@ -6,58 +6,39 @@ import { Supplier } from '../../models/supplier.model';
 import { generateTransactionNumber } from '../../services/transaction-number.service';
 import { createAuditLog } from '../../services/audit.service';
 import { CreatePaymentInput } from './payment.validators';
+import { dateRangeFilter } from '../../utils/query';
 
 export class PaymentService {
   async create(businessId: string, userId: string, input: CreatePaymentInput): Promise<IPayment> {
-    const txnNumber = await generateTransactionNumber(businessId, 'PAY');
+    const bId = new Types.ObjectId(businessId);
+    const partyId = new Types.ObjectId(input.partyId);
     let partyName = '';
 
     if (input.partyType === 'CUSTOMER') {
-      const customer = await Customer.findOne({
-        _id: new Types.ObjectId(input.partyId),
-        businessId: new Types.ObjectId(businessId),
-      });
-
+      const customer = await Customer.findOne({ _id: partyId, businessId: bId });
       if (!customer) {
         throw Object.assign(new Error('Customer not found'), { status: 404 });
       }
-
       partyName = customer.name;
-
-      // When payment is received from customer, it reduces their credit balance
-      if (input.type === 'RECEIVED') {
-        await Customer.findByIdAndUpdate(input.partyId, {
-          $inc: { currentBalancePaise: -input.amountPaise },
-        });
-      }
-    } else if (input.partyType === 'SUPPLIER') {
-      const supplier = await Supplier.findOne({
-        _id: new Types.ObjectId(input.partyId),
-        businessId: new Types.ObjectId(businessId),
-      });
-
+    } else {
+      const supplier = await Supplier.findOne({ _id: partyId, businessId: bId });
       if (!supplier) {
         throw Object.assign(new Error('Supplier not found'), { status: 404 });
       }
-
       partyName = supplier.name;
-
-      // When payment is given to supplier, it reduces our payable amount
-      if (input.type === 'GIVEN') {
-        await Supplier.findByIdAndUpdate(input.partyId, {
-          $inc: { currentPayablePaise: -input.amountPaise },
-        });
-      }
     }
 
     const paymentDate = input.date ? new Date(input.date) : new Date();
+    const txnNumber = await generateTransactionNumber(businessId, 'PAY');
 
+    // Create the payment record first so a failure can never leave a balance changed
+    // without a matching payment entry.
     const payment = await Payment.create({
-      businessId: new Types.ObjectId(businessId),
+      businessId: bId,
       transactionNumber: txnNumber,
       type: input.type,
       partyType: input.partyType,
-      partyId: new Types.ObjectId(input.partyId),
+      partyId,
       partyName,
       amountPaise: input.amountPaise,
       paymentMethod: input.paymentMethod,
@@ -66,6 +47,16 @@ export class PaymentService {
       employeeId: new Types.ObjectId(userId),
       date: paymentDate,
     });
+
+    if (input.partyType === 'CUSTOMER') {
+      // Received from customer reduces what they owe; given to customer (refund/advance) increases it
+      const delta = input.type === 'RECEIVED' ? -input.amountPaise : input.amountPaise;
+      await Customer.updateOne({ _id: partyId, businessId: bId }, { $inc: { currentBalancePaise: delta } });
+    } else {
+      // Given to supplier reduces our payable; received from supplier (refund) increases it
+      const delta = input.type === 'GIVEN' ? -input.amountPaise : input.amountPaise;
+      await Supplier.updateOne({ _id: partyId, businessId: bId }, { $inc: { currentPayablePaise: delta } });
+    }
 
     await createAuditLog({
       businessId,
@@ -99,11 +90,8 @@ export class PaymentService {
     if (options.partyType) filter.partyType = options.partyType;
     if (options.partyId) filter.partyId = new Types.ObjectId(options.partyId);
 
-    if (options.startDate || options.endDate) {
-      filter.date = {};
-      if (options.startDate) filter.date.$gte = new Date(options.startDate);
-      if (options.endDate) filter.date.$lte = new Date(options.endDate);
-    }
+    const dateFilter = dateRangeFilter(options.startDate, options.endDate);
+    if (dateFilter) filter.date = dateFilter;
 
     return Payment.find(filter).sort({ date: -1, createdAt: -1 });
   }

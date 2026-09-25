@@ -4,6 +4,8 @@ import { Product } from '../../models/product.model';
 import { InventoryTransaction, IInventoryTransaction } from '../../models/inventory-transaction.model';
 import { createAuditLog } from '../../services/audit.service';
 import { StockAdjustmentInput } from './inventory.validators';
+import { dateRangeFilter } from '../../utils/query';
+import { changeStock } from '../../services/stock.service';
 
 export interface InventorySummaryItem {
   productId: string;
@@ -38,7 +40,7 @@ export class InventoryService {
 
     const items: InventorySummaryItem[] = products.map((p) => {
       const stockKg = p.currentStockKg || 0;
-      const minStock = p.minimumStockKg || 50;
+      const minStock = p.minimumStockKg ?? 50;
       const isLow = stockKg <= minStock;
       const wac = p.weightedAvgCostPaisePerKg || 0;
       const valuation = Math.round(stockKg * wac);
@@ -91,17 +93,14 @@ export class InventoryService {
       filter.type = options.type;
     }
 
-    if (options.startDate || options.endDate) {
-      filter.date = {};
-      if (options.startDate) filter.date.$gte = new Date(options.startDate);
-      if (options.endDate) filter.date.$lte = new Date(options.endDate);
-    }
+    const dateFilter = dateRangeFilter(options.startDate, options.endDate);
+    if (dateFilter) filter.date = dateFilter;
 
     return InventoryTransaction.find(filter)
       .populate('productId', 'name nameTamil unit')
       .populate('employeeId', 'name')
       .sort({ date: -1, createdAt: -1 })
-      .limit(options.limit || 100);
+      .limit(Math.min(Math.max(options.limit || 100, 1), 500));
   }
 
   async adjustStock(
@@ -119,24 +118,16 @@ export class InventoryService {
     }
 
     const currentStock = product.currentStockKg || 0;
-    let newStock = currentStock;
+    const delta = input.type === 'ADJUSTMENT_OUT' ? -input.quantityKg : input.quantityKg;
 
-    if (input.type === 'ADJUSTMENT_IN') {
-      newStock = currentStock + input.quantityKg;
-    } else if (input.type === 'ADJUSTMENT_OUT') {
-      if (currentStock < input.quantityKg) {
-        throw Object.assign(
-          new Error(`Cannot remove ${input.quantityKg} kg. Current stock is only ${currentStock} kg.`),
-          { status: 400 }
-        );
-      }
-      newStock = currentStock - input.quantityKg;
+    // Atomic, conditional update so concurrent sales can't be overwritten
+    const newStock = await changeStock(businessId, product._id as Types.ObjectId, delta);
+    if (newStock === null) {
+      throw Object.assign(
+        new Error(`Cannot remove ${input.quantityKg} kg. Current stock is only ${currentStock} kg.`),
+        { status: 400 }
+      );
     }
-
-    // Update product stock
-    await Product.findByIdAndUpdate(product._id, {
-      $set: { currentStockKg: newStock },
-    });
 
     // Record movement
     const txn = await InventoryTransaction.create({

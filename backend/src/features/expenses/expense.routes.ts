@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { expenseController } from './expense.controller';
 import { validate } from '../../middleware/validate.middleware';
-import { authenticate } from '../../middleware/auth.middleware';
+import { authenticate, authorize } from '../../middleware/auth.middleware';
 import { requireBusiness } from '../../middleware/business-isolation.middleware';
 import { createExpenseSchema } from './expense.validators';
 
@@ -18,6 +18,6 @@ router.post(
 );
 
 router.get('/', expenseController.getAll.bind(expenseController));
-router.delete('/:id', expenseController.delete.bind(expenseController));
+router.delete('/:id', authorize('owner'), expenseController.delete.bind(expenseController));
 
 export default router;

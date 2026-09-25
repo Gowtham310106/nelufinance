@@ -7,6 +7,7 @@ import { Customer } from '../../models/customer.model';
 import { Supplier } from '../../models/supplier.model';
 import { Product } from '../../models/product.model';
 import { Payment } from '../../models/payment.model';
+import { istDayRange, todayIst } from '../../utils/query';
 
 export interface DashboardMetrics {
   today: {
@@ -38,7 +39,7 @@ export interface DashboardMetrics {
   };
   recentTransactions: {
     id: string;
-    type: 'SALE' | 'PURCHASE' | 'PAYMENT_RECEIVED' | 'EXPENSE';
+    type: 'SALE' | 'PURCHASE' | 'PAYMENT_RECEIVED' | 'PAYMENT_GIVEN' | 'EXPENSE';
     transactionNumber: string;
     partyName: string;
     amountPaise: number;
@@ -51,12 +52,8 @@ export class DashboardService {
   async getMetrics(businessId: string): Promise<DashboardMetrics> {
     const bId = new Types.ObjectId(businessId);
 
-    // Today's date range (midnight to midnight local)
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    // Today's date range in the business's timezone (IST) — servers run in UTC
+    const { start: startOfToday, end: endOfToday } = istDayRange(todayIst());
 
     // 1. Today's Sales
     const todaySales = await Sale.find({
@@ -127,7 +124,7 @@ export class DashboardService {
 
     for (const prod of products) {
       const stock = prod.currentStockKg || 0;
-      const minStock = prod.minimumStockKg || 50;
+      const minStock = prod.minimumStockKg ?? 50;
       const wac = prod.weightedAvgCostPaisePerKg || 0;
 
       totalStockKg += stock;
@@ -181,7 +178,7 @@ export class DashboardService {
     for (const pay of recentPayments) {
       recentTxns.push({
         id: (pay._id as any).toString(),
-        type: 'PAYMENT_RECEIVED',
+        type: pay.type === 'GIVEN' ? 'PAYMENT_GIVEN' : 'PAYMENT_RECEIVED',
         transactionNumber: pay.transactionNumber,
         partyName: pay.partyName,
         amountPaise: pay.amountPaise,

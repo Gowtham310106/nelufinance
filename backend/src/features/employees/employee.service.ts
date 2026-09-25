@@ -5,6 +5,7 @@ import { EmployeeAdvance, IEmployeeAdvance } from '../../models/employee-advance
 import { Expense } from '../../models/expense.model';
 import { generateTransactionNumber } from '../../services/transaction-number.service';
 import { createAuditLog } from '../../services/audit.service';
+import { assertObjectId, parseDateBound } from '../../utils/query';
 import {
   CreateEmployeeInput,
   UpdateEmployeeInput,
@@ -48,6 +49,7 @@ export class EmployeeService {
     employee: IEmployee;
     transactions: IEmployeeAdvance[];
   } | null> {
+    assertObjectId(employeeId, 'employee id');
     const employee = await Employee.findOne({
       _id: new Types.ObjectId(employeeId),
       businessId: new Types.ObjectId(businessId),
@@ -69,13 +71,14 @@ export class EmployeeService {
     employeeId: string,
     input: UpdateEmployeeInput
   ): Promise<IEmployee | null> {
+    assertObjectId(employeeId, 'employee id');
     const updated = await Employee.findOneAndUpdate(
       {
         _id: new Types.ObjectId(employeeId),
         businessId: new Types.ObjectId(businessId),
       },
       { $set: input },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (updated) {
@@ -98,6 +101,7 @@ export class EmployeeService {
     employeeId: string,
     input: RecordEmployeeTransactionInput
   ): Promise<IEmployeeAdvance> {
+    assertObjectId(employeeId, 'employee id');
     const employee = await Employee.findOne({
       _id: new Types.ObjectId(employeeId),
       businessId: new Types.ObjectId(businessId),
@@ -107,10 +111,36 @@ export class EmployeeService {
       throw Object.assign(new Error('Employee not found'), { status: 404 });
     }
 
-    const txnNumber = await generateTransactionNumber(businessId, 'ETR');
-    const txnDate = input.date ? new Date(input.date) : new Date();
+    if (!(input.amountPaise > 0)) {
+      throw Object.assign(new Error('Amount must be greater than 0'), { status: 400 });
+    }
 
-    // 1. Create EmployeeAdvance record
+    const txnDate = input.date ? parseDateBound(input.date, 'start') : new Date();
+
+    // 1. Update employee advance balance first (atomically, so a deduction can't overshoot)
+    if (input.type === 'ADVANCE_GIVEN') {
+      await Employee.findByIdAndUpdate(employee._id, {
+        $inc: { currentAdvancePaise: input.amountPaise },
+      });
+    } else if (input.type === 'ADVANCE_DEDUCTED') {
+      const updated = await Employee.findOneAndUpdate(
+        { _id: employee._id, currentAdvancePaise: { $gte: input.amountPaise } },
+        { $inc: { currentAdvancePaise: -input.amountPaise } },
+        { returnDocument: 'after' }
+      );
+      if (!updated) {
+        const current = (await Employee.findById(employee._id))?.currentAdvancePaise ?? 0;
+        throw Object.assign(
+          new Error(
+            `Deduction ₹${(input.amountPaise / 100).toFixed(2)} exceeds outstanding advance ₹${(current / 100).toFixed(2)}`
+          ),
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. Create EmployeeAdvance record
+    const txnNumber = await generateTransactionNumber(businessId, 'ETR');
     const txn = await EmployeeAdvance.create({
       businessId: new Types.ObjectId(businessId),
       transactionNumber: txnNumber,
@@ -124,16 +154,7 @@ export class EmployeeService {
       recordedBy: new Types.ObjectId(userId),
     });
 
-    // 2. Update employee advance balance
-    if (input.type === 'ADVANCE_GIVEN') {
-      await Employee.findByIdAndUpdate(employeeId, {
-        $inc: { currentAdvancePaise: input.amountPaise },
-      });
-    } else if (input.type === 'ADVANCE_DEDUCTED') {
-      await Employee.findByIdAndUpdate(employeeId, {
-        $inc: { currentAdvancePaise: -input.amountPaise },
-      });
-    } else if (input.type === 'SALARY_PAID') {
+    if (input.type === 'SALARY_PAID') {
       // Auto-record in shop expenses under 'salary'
       const expTxnNumber = await generateTransactionNumber(businessId, 'EXP');
       await Expense.create({

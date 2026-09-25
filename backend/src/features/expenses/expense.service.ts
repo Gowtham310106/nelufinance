@@ -4,6 +4,7 @@ import { Expense, IExpense } from '../../models/expense.model';
 import { generateTransactionNumber } from '../../services/transaction-number.service';
 import { createAuditLog } from '../../services/audit.service';
 import { CreateExpenseInput } from './expense.validators';
+import { parseDateBound } from '../../utils/query';
 
 export class ExpenseService {
   async create(businessId: string, userId: string, input: CreateExpenseInput): Promise<IExpense> {
@@ -50,8 +51,8 @@ export class ExpenseService {
 
     if (options.startDate || options.endDate) {
       filter.date = {};
-      if (options.startDate) filter.date.$gte = new Date(options.startDate);
-      if (options.endDate) filter.date.$lte = new Date(options.endDate);
+      if (options.startDate) filter.date.$gte = parseDateBound(options.startDate, 'start');
+      if (options.endDate) filter.date.$lte = parseDateBound(options.endDate, 'end');
     }
 
     return Expense.find(filter).sort({ date: -1, createdAt: -1 });

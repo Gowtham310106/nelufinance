@@ -4,6 +4,8 @@ import { Types } from 'mongoose';
 import { AuditLog } from '../../models/audit-log.model';
 import { sendSuccess } from '../../utils/api-response';
 
+const MAX_LIMIT = 200;
+
 export class AuditController {
   async getLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -12,20 +14,20 @@ export class AuditController {
 
       const filter: any = { businessId: new Types.ObjectId(businessId) };
       if (entityType && entityType !== 'all') {
-        filter.entityType = entityType;
+        filter.entityType = String(entityType);
       }
       if (action && action !== 'all') {
-        filter.action = action;
+        filter.action = String(action);
       }
 
-      const l = parseInt(limit as string, 10) || 50;
-      const p = parseInt(page as string, 10) || 1;
+      const l = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), MAX_LIMIT);
+      const p = Math.max(parseInt(page as string, 10) || 1, 1);
       const skip = (p - 1) * l;
 
       const total = await AuditLog.countDocuments(filter);
       const logs = await AuditLog.find(filter)
         .populate('userId', 'name phone role')
-        .sort({ timestamp: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
         .limit(l);
 

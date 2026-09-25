@@ -5,11 +5,12 @@ import { Sale } from '../../models/sale.model';
 import { Payment } from '../../models/payment.model';
 import { createAuditLog } from '../../services/audit.service';
 import { CreateCustomerInput, UpdateCustomerInput } from './customer.validators';
+import { searchRegex } from '../../utils/query';
 
 export interface CustomerLedgerEntry {
   id: string;
   date: Date;
-  type: 'OPENING_BALANCE' | 'SALE' | 'PAYMENT_RECEIVED';
+  type: 'OPENING_BALANCE' | 'SALE' | 'PAYMENT_RECEIVED' | 'PAYMENT_GIVEN';
   transactionNumber?: string;
   description: string;
   debitPaise: number;  // Increases balance owed (Sale, Opening)
@@ -49,7 +50,7 @@ export class CustomerService {
     const filter: any = { businessId: new Types.ObjectId(businessId), active: true };
 
     if (search) {
-      const regex = new RegExp(search, 'i');
+      const regex = searchRegex(search);
       filter.$or = [{ name: regex }, { phone: regex }];
     }
 
@@ -75,7 +76,7 @@ export class CustomerService {
         businessId: new Types.ObjectId(businessId),
       },
       { $set: input },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (updated) {
@@ -114,17 +115,16 @@ export class CustomerService {
       customerId: new Types.ObjectId(customerId),
     }).sort({ date: 1 });
 
-    // 2. Payments received from this customer
+    // 2. Payments received from / given to this customer
     const payments = await Payment.find({
       businessId: new Types.ObjectId(businessId),
       partyType: 'CUSTOMER',
       partyId: new Types.ObjectId(customerId),
-      type: 'RECEIVED',
     }).sort({ date: 1 });
 
     const rawEntries: {
       date: Date;
-      type: 'OPENING_BALANCE' | 'SALE' | 'PAYMENT_RECEIVED';
+      type: 'OPENING_BALANCE' | 'SALE' | 'PAYMENT_RECEIVED' | 'PAYMENT_GIVEN';
       id: string;
       transactionNumber?: string;
       description: string;
@@ -133,14 +133,15 @@ export class CustomerService {
     }[] = [];
 
     // Opening Balance
-    if (customer.openingBalancePaise > 0) {
+    if (customer.openingBalancePaise) {
+      // A negative opening balance is an advance held for the customer
       rawEntries.push({
         date: customer.createdAt,
         type: 'OPENING_BALANCE',
         id: 'opening',
         description: 'Opening Balance',
-        debitPaise: customer.openingBalancePaise,
-        creditPaise: 0,
+        debitPaise: Math.max(0, customer.openingBalancePaise),
+        creditPaise: Math.max(0, -customer.openingBalancePaise),
       });
     }
 
@@ -160,19 +161,20 @@ export class CustomerService {
 
     // Direct Payment entries (payments recorded outside of immediate sale point)
     for (const p of payments) {
+      const received = p.type === 'RECEIVED';
       rawEntries.push({
         date: p.date,
-        type: 'PAYMENT_RECEIVED',
+        type: received ? 'PAYMENT_RECEIVED' : 'PAYMENT_GIVEN',
         id: (p._id as any).toString(),
         transactionNumber: p.transactionNumber,
-        description: `Payment Received (${p.paymentMethod.toUpperCase()})${p.notes ? `: ${p.notes}` : ''}`,
-        debitPaise: 0,
-        creditPaise: p.amountPaise,
+        description: `${received ? 'Payment Received' : 'Payment Given'} (${p.paymentMethod.toUpperCase()})${p.notes ? `: ${p.notes}` : ''}`,
+        debitPaise: received ? 0 : p.amountPaise,
+        creditPaise: received ? p.amountPaise : 0,
       });
     }
 
-    // Sort all entries chronologically
-    rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime());
+    // Sort all entries chronologically (stable, so same-day entries keep insertion order)
+    rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Calculate running balances
     let runningBalance = 0;
@@ -202,7 +204,7 @@ export class CustomerService {
   async calculateVatti(
     businessId: string,
     customerId: string,
-    ratePerHundredPerMonth: number,
+    ratePerHundredPerMonth: number | undefined,
     asOfDateStr?: string
   ) {
     const customer = await Customer.findOne({
@@ -215,15 +217,62 @@ export class CustomerService {
     }
 
     const asOfDate = asOfDateStr ? new Date(asOfDateStr) : new Date();
-    const rate = ratePerHundredPerMonth || customer.interestRate || 2.0;
+    if (isNaN(asOfDate.getTime())) {
+      throw Object.assign(new Error('Invalid asOfDate'), { status: 400 });
+    }
+    // An explicit rate (even 0) wins; otherwise the customer's own rate, else the 2% default
+    const rate: number =
+      ratePerHundredPerMonth ?? ((customer.interestRate ?? 0) > 0 ? customer.interestRate! : 2.0);
+    if (!Number.isFinite(rate) || rate < 0) {
+      throw Object.assign(new Error('Invalid interest rate'), { status: 400 });
+    }
 
-    // Get unpaid sales with credit balances
-    const creditSales = await Sale.find({
-      businessId: new Types.ObjectId(businessId),
-      customerId: new Types.ObjectId(customerId),
-      creditAmountPaise: { $gt: 0 },
-    }).sort({ date: 1 });
+    // Everything that increased the customer's balance: opening balance, credit on sales,
+    // and money given to the customer.
+    const [creditSales, givenPayments] = await Promise.all([
+      Sale.find({
+        businessId: new Types.ObjectId(businessId),
+        customerId: new Types.ObjectId(customerId),
+        creditAmountPaise: { $gt: 0 },
+      }).sort({ date: 1 }),
+      Payment.find({
+        businessId: new Types.ObjectId(businessId),
+        partyType: 'CUSTOMER',
+        partyId: new Types.ObjectId(customerId),
+        type: 'GIVEN',
+      }).sort({ date: 1 }),
+    ]);
 
+    const lots: { date: Date; transactionNumber?: string; description: string; amountPaise: number }[] = [];
+    if (customer.openingBalancePaise > 0) {
+      lots.push({
+        date: customer.createdAt,
+        description: 'Opening Balance',
+        amountPaise: customer.openingBalancePaise,
+      });
+    }
+    for (const s of creditSales) {
+      lots.push({
+        date: s.date,
+        transactionNumber: s.transactionNumber,
+        description: s.items.map((i) => i.productName).join(', '),
+        amountPaise: s.creditAmountPaise,
+      });
+    }
+    for (const p of givenPayments) {
+      lots.push({
+        date: p.date,
+        transactionNumber: p.transactionNumber,
+        description: 'Payment Given',
+        amountPaise: p.amountPaise,
+      });
+    }
+    lots.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Payments settle the oldest dues first (FIFO), so whatever is still outstanding is the
+    // most recent part of the debt. Walk newest → oldest assigning the current balance.
+    const principalPaise = Math.max(0, customer.currentBalancePaise || 0);
+    let unallocated = principalPaise;
     let totalInterestPaise = 0;
     const breakdown: {
       date: Date;
@@ -235,44 +284,32 @@ export class CustomerService {
       interestPaise: number;
     }[] = [];
 
-    for (const s of creditSales) {
-      const saleDate = new Date(s.date);
-      const diffMs = Math.max(0, asOfDate.getTime() - saleDate.getTime());
+    const addLine = (lot: { date: Date; transactionNumber?: string; description: string }, amount: number) => {
+      const diffMs = Math.max(0, asOfDate.getTime() - new Date(lot.date).getTime());
       const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       const months = Math.round((days / 30) * 100) / 100;
-
       // Simple Interest = Principal * (Rate / 100) * (days / 30)
-      const interestPaise = Math.round(s.creditAmountPaise * (rate / 100) * (days / 30));
+      const interestPaise = Math.round(amount * (rate / 100) * (days / 30));
       totalInterestPaise += interestPaise;
-
-      breakdown.push({
-        date: s.date,
-        transactionNumber: s.transactionNumber,
-        description: s.items.map((i) => i.productName).join(', '),
-        principalPaise: s.creditAmountPaise,
+      breakdown.unshift({
+        date: lot.date,
+        transactionNumber: lot.transactionNumber,
+        description: lot.description,
+        principalPaise: amount,
         days,
         months,
         interestPaise,
       });
+    };
+
+    for (let i = lots.length - 1; i >= 0 && unallocated > 0; i--) {
+      const amount = Math.min(lots[i].amountPaise, unallocated);
+      addLine(lots[i], amount);
+      unallocated -= amount;
     }
-
-    const principalPaise = customer.currentBalancePaise || 0;
-    // If there were no discrete credit sales found (e.g. from opening balance), compute directly on current balance
-    if (breakdown.length === 0 && principalPaise > 0) {
-      const custCreated = new Date(customer.createdAt);
-      const diffMs = Math.max(0, asOfDate.getTime() - custCreated.getTime());
-      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const months = Math.round((days / 30) * 100) / 100;
-      totalInterestPaise = Math.round(principalPaise * (rate / 100) * (days / 30));
-
-      breakdown.push({
-        date: customer.createdAt,
-        description: 'Opening / Ledger Balance',
-        principalPaise,
-        days,
-        months,
-        interestPaise: totalInterestPaise,
-      });
+    // Balance not explained by any recorded transaction (e.g. legacy data)
+    if (unallocated > 0) {
+      addLine({ date: customer.createdAt, description: 'Opening / Ledger Balance' }, unallocated);
     }
 
     const totalDuePaise = principalPaise + totalInterestPaise;

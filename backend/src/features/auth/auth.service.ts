@@ -34,16 +34,26 @@ export class AuthService {
       ownerId: userId,
     });
 
-    // 2. Create User
-    const user = await User.create({
-      _id: userId,
-      phone: input.phone,
-      passwordHash,
-      name: input.name,
-      role: 'owner',
-      language: input.language || 'en',
-      businessId: business._id,
-    });
+    // 2. Create User (remove the business again if this fails, e.g. a concurrent sign-up
+    // with the same phone hit the unique index)
+    let user: IUser;
+    try {
+      user = await User.create({
+        _id: userId,
+        phone: input.phone,
+        passwordHash,
+        name: input.name,
+        role: 'owner',
+        language: input.language || 'en',
+        businessId: business._id,
+      });
+    } catch (error: any) {
+      await Business.deleteOne({ _id: business._id });
+      if (error?.code === 11000) {
+        throw Object.assign(new Error('Phone number already registered'), { status: 409 });
+      }
+      throw error;
+    }
 
     const token = this.generateToken(user);
     return { user, token };
@@ -61,6 +71,10 @@ export class AuthService {
     const isValidPassword = await bcrypt.compare(input.password, user.passwordHash);
     if (!isValidPassword) {
       throw Object.assign(new Error('Invalid phone number or password'), { status: 401 });
+    }
+
+    if (user.active === false) {
+      throw Object.assign(new Error('This account has been deactivated'), { status: 403 });
     }
 
     // Ensure user has a business attached if previously unlinked

@@ -13,7 +13,8 @@ export const denominationCountSchema = z.object({
 
 export const submitDailyClosingSchema = z.object({
   closingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
-  openingCashPaise: z.number().nonnegative().default(0),
+  // Optional override; when omitted the previous day's counted cash is used
+  openingCashPaise: z.number().int().nonnegative().optional(),
   denominations: denominationCountSchema,
   notes: z.string().max(500).optional().default(''),
 });

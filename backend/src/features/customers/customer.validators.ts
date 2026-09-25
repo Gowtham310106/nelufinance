@@ -1,11 +1,12 @@
 // src/features/customers/customer.validators.ts
 import { z } from 'zod';
+import { paiseAmount } from '../../utils/validation';
 
 export const createCustomerSchema = z.object({
   name: z.string().min(1, 'Customer name is required').max(100).trim(),
   phone: z.string().min(10, 'Valid phone number is required').max(15).trim(),
   address: z.string().max(300).trim().optional().default(''),
-  openingBalancePaise: z.number().min(0).optional().default(0),
+  openingBalancePaise: paiseAmount().optional().default(0),
   interestRate: z.number().min(0).max(100).optional().default(0),
   notes: z.string().max(500).trim().optional().default(''),
 });

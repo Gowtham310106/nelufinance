@@ -11,12 +11,31 @@ import { Employee } from '../../models/employee.model';
 import { WeightReconciliation } from '../../models/weight-reconciliation.model';
 import { DailyClosing } from '../../models/daily-closing.model';
 import { InventoryTransaction } from '../../models/inventory-transaction.model';
+import { EmployeeAdvance } from '../../models/employee-advance.model';
 import { generateTransactionNumber } from '../../services/transaction-number.service';
+import { env } from '../../config/env';
 
 export class SeedService {
   async populateDemoData(businessId: string, userId: string) {
     const bId = new Types.ObjectId(businessId);
     const uId = new Types.ObjectId(userId);
+
+    // Seeding wipes the business's records, so only allow it on a business with no real
+    // transactions yet — unless explicitly enabled for a demo deployment.
+    if (env.ENABLE_DEMO_SEED !== 'true') {
+      const [salesCount, purchasesCount] = await Promise.all([
+        Sale.countDocuments({ businessId: bId }),
+        Purchase.countDocuments({ businessId: bId }),
+      ]);
+      if (salesCount > 0 || purchasesCount > 0) {
+        throw Object.assign(
+          new Error(
+            'Demo data can only be loaded into a new business with no sales or purchases. Your existing records were not changed.',
+          ),
+          { status: 409 },
+        );
+      }
+    }
 
     // 1. Clear previous records for clean seeding
     await Product.deleteMany({ businessId: bId });
@@ -30,6 +49,7 @@ export class SeedService {
     await WeightReconciliation.deleteMany({ businessId: bId });
     await DailyClosing.deleteMany({ businessId: bId });
     await InventoryTransaction.deleteMany({ businessId: bId });
+    await EmployeeAdvance.deleteMany({ businessId: bId });
 
     // 2. Realistic Tamil Nadu Products
     const productsData = [
@@ -41,7 +61,8 @@ export class SeedService {
         unit: 'kg',
         currentStockKg: 1800,
         minimumStockKg: 300,
-        sellingPricePaisePerKg: 5400, // ₹54.00
+        sellingPricePaise: 5400, // ₹54.00
+        purchasePricePaise: 4600,
         weightedAvgCostPaisePerKg: 4600, // ₹46.00
         active: true,
       },
@@ -53,19 +74,21 @@ export class SeedService {
         unit: 'kg',
         currentStockKg: 1200,
         minimumStockKg: 200,
-        sellingPricePaisePerKg: 5000, // ₹50.00
+        sellingPricePaise: 5000, // ₹50.00
+        purchasePricePaise: 4200,
         weightedAvgCostPaisePerKg: 4200, // ₹42.00
         active: true,
       },
       {
         name: 'IR20 Idly / Tiffin Rice',
         nameTamil: 'ஐ.ஆர்.20 இட்லி / டிபன் அரிசி',
-        category: 'idly_rice',
+        category: 'idli_rice',
         variety: 'IR20',
         unit: 'kg',
         currentStockKg: 2500,
         minimumStockKg: 400,
-        sellingPricePaisePerKg: 3800, // ₹38.00
+        sellingPricePaise: 3800, // ₹38.00
+        purchasePricePaise: 3200,
         weightedAvgCostPaisePerKg: 3200, // ₹32.00
         active: true,
       },
@@ -77,19 +100,21 @@ export class SeedService {
         unit: 'kg',
         currentStockKg: 4000,
         minimumStockKg: 500,
-        sellingPricePaisePerKg: 2800, // ₹28.00
+        sellingPricePaise: 2800, // ₹28.00
+        purchasePricePaise: 2400,
         weightedAvgCostPaisePerKg: 2400, // ₹24.00
         active: true,
       },
       {
         name: 'ADT 45 Samba Boiled Paddy',
         nameTamil: 'ஏ.டி.டி 45 சாம்பா புழுங்கல் நெல்',
-        category: 'boiled_paddy',
+        category: 'other',
         variety: 'ADT 45',
         unit: 'kg',
         currentStockKg: 3500,
         minimumStockKg: 500,
-        sellingPricePaisePerKg: 3000, // ₹30.00
+        sellingPricePaise: 3000, // ₹30.00
+        purchasePricePaise: 2600,
         weightedAvgCostPaisePerKg: 2600, // ₹26.00
         active: true,
       },
@@ -101,7 +126,8 @@ export class SeedService {
         unit: 'kg',
         currentStockKg: 600,
         minimumStockKg: 100,
-        sellingPricePaisePerKg: 1800, // ₹18.00
+        sellingPricePaise: 1800, // ₹18.00
+        purchasePricePaise: 1400,
         weightedAvgCostPaisePerKg: 1400, // ₹14.00
         active: true,
       },
@@ -147,7 +173,7 @@ export class SeedService {
         phone: '9840123456',
         address: 'Bazaar Street, Town',
         openingBalancePaise: 500000,
-        currentBalancePaise: 1420000, // ₹14,200
+        currentBalancePaise: 1490000, // ₹5,000 opening + ₹9,900 credit sale
         interestRate: 2.0,
         active: true,
       },
@@ -155,7 +181,7 @@ export class SeedService {
         name: 'Annapoorna Tiffin Center',
         phone: '9790234567',
         address: 'Bus Stand Road',
-        openingBalancePaise: 0,
+        openingBalancePaise: 850000,
         currentBalancePaise: 850000, // ₹8,500
         interestRate: 1.5,
         active: true,
@@ -164,7 +190,7 @@ export class SeedService {
         name: 'Sri Selvi Grocery Store',
         phone: '9444345678',
         address: 'South Car Street',
-        openingBalancePaise: 1000000,
+        openingBalancePaise: 2100000,
         currentBalancePaise: 2100000, // ₹21,000
         interestRate: 2.0,
         active: true,
@@ -173,7 +199,7 @@ export class SeedService {
         name: 'Kaveri Catering Services',
         phone: '9884567890',
         address: 'Railway Station Road',
-        openingBalancePaise: 0,
+        openingBalancePaise: 480000,
         currentBalancePaise: 480000, // ₹4,800
         interestRate: 2.0,
         active: true,
@@ -253,16 +279,16 @@ export class SeedService {
         {
           productId: products[0]._id,
           productName: products[0].name,
-          quantity: 40,
-          unit: 'bag',
-          unitWeightKg: 75,
+          inputQuantity: 40,
+          inputUnit: 'bag',
           quantityKg: 3000,
-          ratePaisePerUnit: 345000, // ₹3,450 per 75kg bag (₹46/kg)
+          ratePaisePerKg: 4600, // ₹3,450 per 75kg bag (₹46/kg)
           totalAmountPaise: 13800000, // ₹1,38,000
         },
       ],
       totalAmountPaise: 13800000,
       paidAmountPaise: 9300000,
+      pendingAmountPaise: 4500000,
       paymentMethod: 'bank_transfer',
       date: new Date(Date.now() - 86400000 * 2),
     });
@@ -278,11 +304,10 @@ export class SeedService {
         {
           productId: products[0]._id,
           productName: products[0].name,
-          quantity: 4,
-          unit: 'bag',
-          unitWeightKg: 75,
+          inputQuantity: 4,
+          inputUnit: 'bag',
           quantityKg: 300,
-          ratePaisePerUnit: 405000, // ₹4,050 per bag (₹54/kg)
+          ratePaisePerKg: 5400, // ₹4,050 per bag (₹54/kg)
           costPaisePerKgSnapshot: 4600,
           totalCostPaise: 1380000, // ₹13,800
           totalAmountPaise: 1620000, // ₹16,200
@@ -290,11 +315,10 @@ export class SeedService {
         {
           productId: products[2]._id,
           productName: products[2].name,
-          quantity: 2,
-          unit: 'bag',
-          unitWeightKg: 75,
+          inputQuantity: 2,
+          inputUnit: 'bag',
           quantityKg: 150,
-          ratePaisePerUnit: 285000, // ₹2,850 per bag (₹38/kg)
+          ratePaisePerKg: 3800, // ₹2,850 per bag (₹38/kg)
           costPaisePerKgSnapshot: 3200,
           totalCostPaise: 480000, // ₹4,800
           totalAmountPaise: 570000, // ₹5,700
@@ -318,11 +342,10 @@ export class SeedService {
         {
           productId: products[1]._id,
           productName: products[1].name,
-          quantity: 1,
-          unit: 'bag',
-          unitWeightKg: 75,
+          inputQuantity: 1,
+          inputUnit: 'bag',
           quantityKg: 75,
-          ratePaisePerUnit: 375000,
+          ratePaisePerKg: 5000,
           costPaisePerKgSnapshot: 4200,
           totalCostPaise: 315000,
           totalAmountPaise: 375000,

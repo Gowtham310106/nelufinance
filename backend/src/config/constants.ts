@@ -5,18 +5,23 @@ export type WeightUnit = (typeof WEIGHT_UNITS)[number];
 
 /** Convert any weight unit to kilograms */
 export function toKg(value: number, unit: WeightUnit): number {
+  let kg: number;
   switch (unit) {
-    case 'kg':
-      return value;
     case 'quintal':
-      return value * 100;
+      kg = value * 100;
+      break;
     case 'tonne':
-      return value * 1000;
+      kg = value * 1000;
+      break;
     case 'bag':
-      return value * 75; // Standard rice bag = 75kg
+      kg = value * 75; // Standard rice bag = 75kg
+      break;
+    case 'kg':
     default:
-      return value;
+      kg = value;
   }
+  // Round to grams so repeated stock arithmetic doesn't accumulate float error
+  return Math.round(kg * 1000) / 1000;
 }
 
 /** Convert kilograms to display unit */

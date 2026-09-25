@@ -19,6 +19,10 @@ export interface IDailyClosing extends Document {
   cashPaymentsReceivedPaise: number;
   cashPaymentsGivenPaise: number;
   cashExpensesPaise: number;
+  purchaseCashOutPaise: number; // Cash paid upfront on purchases (not recorded as Payment docs)
+  advancesPaidPaise: number; // Employee ADVANCE_GIVEN in cash (salary is already an Expense)
+  adakuLoansOutPaise: number; // Pawn loan amounts paid out
+  adakuReceiptsPaise: number; // Cash vatti / principal received on pawn loans
   expectedClosingCashPaise: number;
   actualCashInDrawerPaise: number;
   cashVariancePaise: number; // actual - expected
@@ -53,6 +57,10 @@ const DailyClosingSchema = new Schema<IDailyClosing>(
     cashPaymentsReceivedPaise: { type: Number, default: 0 },
     cashPaymentsGivenPaise: { type: Number, default: 0 },
     cashExpensesPaise: { type: Number, default: 0 },
+    purchaseCashOutPaise: { type: Number, default: 0 },
+    advancesPaidPaise: { type: Number, default: 0 },
+    adakuLoansOutPaise: { type: Number, default: 0 },
+    adakuReceiptsPaise: { type: Number, default: 0 },
     expectedClosingCashPaise: { type: Number, required: true },
     actualCashInDrawerPaise: { type: Number, required: true },
     cashVariancePaise: { type: Number, required: true },
