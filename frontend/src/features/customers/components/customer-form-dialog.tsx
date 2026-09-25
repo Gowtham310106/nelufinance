@@ -18,7 +18,7 @@ import { UserPlus, Loader2 } from "lucide-react";
 
 interface CustomerFormDialogProps {
   customer?: Customer;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -40,6 +40,22 @@ export function CustomerFormDialog({ customer, trigger, onSuccess }: CustomerFor
   const [error, setError] = useState("");
 
   const isSubmitting = createCustomer.isPending || updateCustomer.isPending;
+
+  // Seed the form from the entity (edit mode) or blank defaults (create mode).
+  const resetForm = () => {
+    setName(customer?.name || "");
+    setPhone(customer?.phone || "");
+    setAddress(customer?.address || "");
+    setOpeningBalanceRupees(customer ? (customer.openingBalancePaise / 100).toString() : "0");
+    setInterestRate(customer?.interestRate?.toString() || "0");
+    setNotes(customer?.notes || "");
+    setError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) resetForm();
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,25 +87,26 @@ export function CustomerFormDialog({ customer, trigger, onSuccess }: CustomerFor
           interestRate: parseFloat(interestRate || "0"),
           notes,
         });
+        resetForm();
       }
 
       setOpen(false);
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to save customer");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to save customer");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 cursor-pointer">
-            <UserPlus className="h-4 w-4" />
-            {t("customers.addCustomer")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button className="gap-1.5" />}>
+          <UserPlus className="h-4 w-4" />
+          {t("customers.addCustomer")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>

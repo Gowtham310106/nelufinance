@@ -18,7 +18,7 @@ import { Plus, Loader2 } from "lucide-react";
 
 interface SupplierFormDialogProps {
   supplier?: Supplier;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -36,6 +36,20 @@ export function SupplierFormDialog({ supplier, trigger, onSuccess }: SupplierFor
   const [error, setError] = useState("");
 
   const isSubmitting = createSupplier.isPending || updateSupplier.isPending;
+
+  // Seed the form from the entity (edit mode) or blank defaults (create mode).
+  const resetForm = () => {
+    setName(supplier?.name || "");
+    setPhone(supplier?.phone || "");
+    setAddress(supplier?.address || "");
+    setNotes(supplier?.notes || "");
+    setError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) resetForm();
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,25 +73,26 @@ export function SupplierFormDialog({ supplier, trigger, onSuccess }: SupplierFor
           address,
           notes,
         });
+        resetForm();
       }
 
       setOpen(false);
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to save supplier");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to save supplier");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 cursor-pointer">
-            <Plus className="h-4 w-4" />
-            {t("suppliers.addSupplier")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button className="gap-1.5" />}>
+          <Plus className="h-4 w-4" />
+          {t("suppliers.addSupplier")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>

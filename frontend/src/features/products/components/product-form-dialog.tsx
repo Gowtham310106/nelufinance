@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useProducts, Product } from "../hooks/use-products";
 import {
   Dialog,
@@ -25,7 +25,7 @@ import { Plus, Loader2 } from "lucide-react";
 
 interface ProductFormDialogProps {
   product?: Product;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -46,7 +46,6 @@ const UNITS = ["kg", "quintal", "tonne", "bag"] as const;
 
 export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDialogProps) {
   const t = useTranslations();
-  const locale = useLocale();
   const { createProduct, updateProduct } = useProducts();
   const [open, setOpen] = useState(false);
 
@@ -71,6 +70,24 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
   const [error, setError] = useState("");
 
   const isSubmitting = createProduct.isPending || updateProduct.isPending;
+
+  // Seed the form from the entity (edit mode) or blank defaults (create mode).
+  const resetForm = () => {
+    setName(product?.name || "");
+    setNameTamil(product?.nameTamil || "");
+    setCategory(product?.category || "boiled_rice");
+    setUnit(product?.unit || "kg");
+    setPurchasePriceRupees(product ? (product.purchasePricePaise / 100).toString() : "");
+    setSellingPriceRupees(product ? (product.sellingPricePaise / 100).toString() : "");
+    setInitialStockKg(product ? product.currentStockKg.toString() : "0");
+    setMinimumStockKg(product ? product.minimumStockKg.toString() : "50");
+    setError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) resetForm();
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,25 +127,26 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
           initialStockKg: parseFloat(initialStockKg || "0"),
           minimumStockKg: minStock,
         });
+        resetForm();
       }
 
       setOpen(false);
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to save product");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to save product");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 cursor-pointer">
-            <Plus className="h-4 w-4" />
-            {t("products.addProduct")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button className="gap-1.5" />}>
+          <Plus className="h-4 w-4" />
+          {t("products.addProduct")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -170,7 +188,7 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t("products.category")}</Label>
-              <Select value={category} onValueChange={(val) => val && setCategory(val as any)}>
+              <Select value={category} onValueChange={(val) => val && setCategory(val)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -186,7 +204,7 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
 
             <div className="space-y-1.5">
               <Label>{t("products.unit")}</Label>
-              <Select value={unit} onValueChange={(val) => val && setUnit(val as any)}>
+              <Select value={unit} onValueChange={(val) => val && setUnit(val)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -203,11 +221,12 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="purchasePrice">{t("products.purchasePrice")} (₹)</Label>
+              <Label htmlFor="purchasePrice">{t("products.purchasePrice")} (₹/kg)</Label>
               <Input
                 id="purchasePrice"
                 type="number"
-                step="0.5"
+                step="0.01"
+                min="0"
                 placeholder="45.00"
                 value={purchasePriceRupees}
                 onChange={(e) => setPurchasePriceRupees(e.target.value)}
@@ -215,11 +234,12 @@ export function ProductFormDialog({ product, trigger, onSuccess }: ProductFormDi
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="sellingPrice">{t("products.sellingPrice")} (₹)</Label>
+              <Label htmlFor="sellingPrice">{t("products.sellingPrice")} (₹/kg)</Label>
               <Input
                 id="sellingPrice"
                 type="number"
-                step="0.5"
+                step="0.01"
+                min="0"
                 placeholder="54.00"
                 value={sellingPriceRupees}
                 onChange={(e) => setSellingPriceRupees(e.target.value)}

@@ -6,7 +6,7 @@ interface FetchOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public statusCode: number,
     message: string,
@@ -16,7 +16,7 @@ class ApiError extends Error {
   }
 }
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("vetrinel_token");
 }
@@ -52,13 +52,33 @@ export async function apiClient<T = unknown>(
   const response = await fetch(url, {
     ...restOptions,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  const data = await response.json();
+  // Non-JSON bodies (204, proxy/gateway HTML errors) must not crash with a SyntaxError
+  const text = await response.text();
+  let data: { error?: string; message?: string } | null = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text.slice(0, 200) };
+    }
+  }
 
   if (!response.ok) {
-    throw new ApiError(response.status, data.error || data.message || "Something went wrong");
+    // Expired/invalid session: drop the token and send the user back to login
+    if (response.status === 401 && token && !endpoint.startsWith("/auth/")) {
+      clearToken();
+      if (typeof window !== "undefined") {
+        const locale = window.location.pathname.split("/")[1] || "en";
+        window.location.replace(`/${["en", "ta"].includes(locale) ? locale : "en"}/login`);
+      }
+    }
+    throw new ApiError(
+      response.status,
+      data?.error || data?.message || `Request failed (${response.status})`,
+    );
   }
 
   return data as T;
@@ -73,6 +93,9 @@ export const api = {
 
   put: <T>(url: string, body?: unknown) =>
     apiClient<T>(url, { method: "PUT", body }),
+
+  patch: <T>(url: string, body?: unknown) =>
+    apiClient<T>(url, { method: "PATCH", body }),
 
   delete: <T>(url: string) => apiClient<T>(url, { method: "DELETE" }),
 };

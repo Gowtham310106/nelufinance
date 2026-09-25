@@ -25,7 +25,7 @@ import { UserPlus, Loader2, AlertCircle } from "lucide-react";
 
 interface EmployeeFormDialogProps {
   employee?: Employee;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -34,8 +34,10 @@ const SALARY_TYPES = ["daily", "monthly", "per_bag"] as const;
 
 export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFormDialogProps) {
   const t = useTranslations();
-  const { createEmployee } = useEmployees();
+  const { createEmployee, updateEmployee } = useEmployees();
   const [open, setOpen] = useState(false);
+
+  const isEditing = !!employee;
 
   const [name, setName] = useState(employee?.name || "");
   const [phone, setPhone] = useState(employee?.phone || "");
@@ -47,6 +49,24 @@ export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFor
   const [notes, setNotes] = useState(employee?.notes || "");
   const [error, setError] = useState("");
 
+  const isSubmitting = createEmployee.isPending || updateEmployee.isPending;
+
+  // Seed the form from the entity (edit mode) or blank defaults (create mode).
+  const resetForm = () => {
+    setName(employee?.name || "");
+    setPhone(employee?.phone || "");
+    setRole(employee?.role || "labor");
+    setSalaryType(employee?.salaryType || "daily");
+    setBaseSalaryRupees(employee ? (employee.baseSalaryPaise / 100).toString() : "");
+    setNotes(employee?.notes || "");
+    setError("");
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) resetForm();
+    setOpen(nextOpen);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -56,42 +76,45 @@ export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFor
       return;
     }
 
+    const payload = {
+      name,
+      phone,
+      role,
+      salaryType,
+      baseSalaryPaise: Math.round(parseFloat(baseSalaryRupees || "0") * 100),
+      notes,
+    };
+
     try {
-      await createEmployee.mutateAsync({
-        name,
-        phone,
-        role,
-        salaryType,
-        baseSalaryPaise: Math.round(parseFloat(baseSalaryRupees || "0") * 100),
-        notes,
-      });
+      if (isEditing) {
+        await updateEmployee.mutateAsync({ id: employee._id, data: payload });
+      } else {
+        await createEmployee.mutateAsync(payload);
+        resetForm();
+      }
 
       setOpen(false);
-      setName("");
-      setPhone("");
-      setBaseSalaryRupees("");
-      setNotes("");
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to save employee");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to save employee");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 cursor-pointer">
-            <UserPlus className="h-4 w-4" />
-            {t("employees.addEmployee")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button className="gap-1.5" />}>
+          <UserPlus className="h-4 w-4" />
+          {t("employees.addEmployee")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {employee ? t("employees.editEmployee") : t("employees.addEmployee")}
+            {isEditing ? t("employees.editEmployee") : t("employees.addEmployee")}
           </DialogTitle>
         </DialogHeader>
 
@@ -136,7 +159,7 @@ export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFor
                 <SelectContent>
                   {ROLES.map((r) => (
                     <SelectItem key={r} value={r}>
-                      {t(`employees.roles.${r}` as any)}
+                      {t(`employees.roles.${r}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -152,7 +175,7 @@ export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFor
                 <SelectContent>
                   {SALARY_TYPES.map((st) => (
                     <SelectItem key={st} value={st}>
-                      {t(`employees.salaryTypes.${st}` as any)}
+                      {t(`employees.salaryTypes.${st}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -186,12 +209,12 @@ export function EmployeeFormDialog({ employee, trigger, onSuccess }: EmployeeFor
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              disabled={createEmployee.isPending}
+              disabled={isSubmitting}
             >
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={createEmployee.isPending}>
-              {createEmployee.isPending ? (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 t("common.save")

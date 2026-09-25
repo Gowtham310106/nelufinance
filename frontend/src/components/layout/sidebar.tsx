@@ -18,6 +18,8 @@ import {
   Package,
   Scale,
   CalendarCheck,
+  Coins,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +27,8 @@ import { Separator } from "@/components/ui/separator";
 interface SidebarItem {
   href: string;
   labelKey: string;
+  /** Shown when `labelKey` is missing from the message catalog. */
+  fallbackLabel?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -40,6 +44,7 @@ const SECONDARY_ITEMS: SidebarItem[] = [
   { href: "/customers", labelKey: "nav.customers", icon: Users },
   { href: "/suppliers", labelKey: "nav.suppliers", icon: Truck },
   { href: "/credit", labelKey: "nav.credit", icon: CreditCard },
+  { href: "/adaku", labelKey: "nav.adaku", fallbackLabel: "Adaku (அடகு)", icon: Coins },
   { href: "/expenses", labelKey: "nav.expenses", icon: Receipt },
   { href: "/employees", labelKey: "nav.employees", icon: UserCog },
 ];
@@ -48,6 +53,7 @@ const TOOLS_ITEMS: SidebarItem[] = [
   { href: "/weight-reconciliation", labelKey: "nav.weightCheck", icon: Scale },
   { href: "/daily-closing", labelKey: "nav.dailyClosing", icon: CalendarCheck },
   { href: "/reports", labelKey: "nav.reports", icon: BarChart3 },
+  { href: "/audit-logs", labelKey: "nav.auditLogs", icon: ClipboardList },
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
@@ -70,7 +76,11 @@ function NavLink({ item }: { item: SidebarItem }) {
       )}
     >
       <item.icon className="h-4 w-4 shrink-0" />
-      <span className="truncate">{t(item.labelKey)}</span>
+      <span className="truncate">
+        {item.fallbackLabel && !t.has(item.labelKey)
+          ? item.fallbackLabel
+          : t(item.labelKey)}
+      </span>
     </Link>
   );
 }

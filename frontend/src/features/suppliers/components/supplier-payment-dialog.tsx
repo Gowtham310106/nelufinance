@@ -26,7 +26,7 @@ import { Banknote, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface SupplierPaymentDialogProps {
   supplier: Supplier;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -47,6 +47,18 @@ export function SupplierPaymentDialog({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
+  // Re-seed from the latest payable balance every time the dialog opens.
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setAmountRupees(payableRupees > 0 ? payableRupees.toString() : "");
+      setPaymentMethod("bank_transfer");
+      setReferenceNumber("");
+      setNotes("");
+      setError("");
+    }
+    setOpen(nextOpen);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -63,28 +75,30 @@ export function SupplierPaymentDialog({
         partyType: "SUPPLIER",
         partyId: supplier._id,
         amountPaise: Math.round(amt * 100),
-        paymentMethod: paymentMethod as any,
+        paymentMethod,
         referenceNumber,
         notes,
       });
 
+      setReferenceNumber("");
+      setNotes("");
       setOpen(false);
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to record payment");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record payment");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground font-medium text-xs hover:bg-primary/90 cursor-pointer">
-            <Banknote className="h-3.5 w-3.5" />
-            {t("suppliers.makePayment")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+          <Banknote className="h-3.5 w-3.5" />
+          {t("suppliers.makePayment")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>

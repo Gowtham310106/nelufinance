@@ -68,28 +68,16 @@ export function useInventory() {
     },
   });
 
-  const movementsQuery = (options: { productId?: string; type?: string } = {}) =>
-    useQuery({
-      queryKey: ["inventory", "movements", options],
-      queryFn: async () => {
-        const params = new URLSearchParams();
-        if (options.productId) params.append("productId", options.productId);
-        if (options.type) params.append("type", options.type);
-
-        const endpoint = `/inventory/movements${params.toString() ? `?${params.toString()}` : ""}`;
-        const res = await api.get<{ success: boolean; data: InventoryMovement[] }>(endpoint);
-        return res.data;
-      },
-    });
-
   const adjustStock = useMutation({
     mutationFn: async (data: StockAdjustmentInput) => {
-      const res = await api.post<{ success: boolean; data: any }>("/inventory/adjustments", data);
+      const res = await api.post<{ success: boolean; data: unknown }>("/inventory/adjustments", data);
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
 
@@ -98,7 +86,21 @@ export function useInventory() {
     isLoading: overviewQuery.isLoading,
     isError: overviewQuery.isError,
     refetch: overviewQuery.refetch,
-    movementsQuery,
     adjustStock,
   };
+}
+
+export function useInventoryMovements(options: { productId?: string; type?: string } = {}) {
+  return useQuery({
+    queryKey: ["inventory", "movements", options],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (options.productId) params.append("productId", options.productId);
+      if (options.type) params.append("type", options.type);
+
+      const endpoint = `/inventory/movements${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await api.get<{ success: boolean; data: InventoryMovement[] }>(endpoint);
+      return res.data;
+    },
+  });
 }

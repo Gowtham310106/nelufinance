@@ -26,9 +26,11 @@ import { SlidersHorizontal, Loader2, AlertCircle } from "lucide-react";
 
 interface StockAdjustmentDialogProps {
   productId?: string;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
+
+const MIN_REASON_LENGTH = 3;
 
 export function StockAdjustmentDialog({
   productId: initialProductId,
@@ -50,6 +52,14 @@ export function StockAdjustmentDialog({
 
   const selectedProduct = products.find((p) => p._id === productId);
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setProductId(initialProductId || "");
+      setError("");
+    }
+    setOpen(nextOpen);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -65,8 +75,11 @@ export function StockAdjustmentDialog({
       return;
     }
 
-    if (!reason.trim()) {
-      setError("Reason is required for inventory adjustments");
+    // Backend requires a reason of at least 3 characters.
+    if (reason.trim().length < MIN_REASON_LENGTH) {
+      setError(
+        `${t("inventory.adjustmentReason")}: ${t("validation.minLength", { min: MIN_REASON_LENGTH })}`
+      );
       return;
     }
 
@@ -75,7 +88,7 @@ export function StockAdjustmentDialog({
         productId,
         type,
         quantityKg: qty,
-        reason,
+        reason: reason.trim(),
         notes,
       });
 
@@ -84,21 +97,21 @@ export function StockAdjustmentDialog({
       setReason("");
       setNotes("");
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to adjust stock");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to adjust stock");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-input bg-background font-medium text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer">
-            <SlidersHorizontal className="h-4 w-4" />
-            {t("inventory.adjustment")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button variant="outline" className="gap-1.5" />}>
+          <SlidersHorizontal className="h-4 w-4" />
+          {t("inventory.adjustment")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>

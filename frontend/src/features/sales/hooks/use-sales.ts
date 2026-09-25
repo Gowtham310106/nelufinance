@@ -70,10 +70,20 @@ export function useSales(options: { startDate?: string; endDate?: string; custom
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["sales"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      // Prefix keys: invalidates every variant (filters, ids, dates) of each query.
+      [
+        "sales",
+        "products",
+        "inventory",
+        "customers",
+        "customer",
+        "customer-ledger",
+        "vatti",
+        "payments",
+        "dashboard",
+        "reports",
+        "daily-closing",
+      ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
     },
   });
 

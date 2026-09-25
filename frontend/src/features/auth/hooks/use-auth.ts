@@ -1,8 +1,9 @@
 // src/features/auth/hooks/use-auth.ts
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { api, setToken, clearToken } from "@/lib/api-client";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, setToken, clearToken, getToken } from "@/lib/api-client";
 
 interface User {
   id: string;
@@ -11,12 +12,6 @@ interface User {
   role: "owner" | "employee";
   language: "en" | "ta";
   businessId?: string;
-}
-
-interface AuthState {
-  user: User | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
 }
 
 interface LoginInput {
@@ -39,54 +34,66 @@ interface AuthResponse {
   };
 }
 
+export const AUTH_QUERY_KEY = ["auth", "me"] as const;
+
+/**
+ * Auth state is kept in the React Query cache so every component that calls
+ * useAuth() shares the same user — one /auth/me request per session, and
+ * logging out anywhere signs the user out everywhere (AuthGuard redirects).
+ */
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isLoading: true,
-    isAuthenticated: false,
+  const queryClient = useQueryClient();
+
+  const meQuery = useQuery({
+    queryKey: AUTH_QUERY_KEY,
+    queryFn: async (): Promise<User | null> => {
+      if (!getToken()) return null;
+      try {
+        const res = await api.get<{ success: boolean; data: User }>("/auth/me");
+        return res.data;
+      } catch {
+        clearToken();
+        return null;
+      }
+    },
+    staleTime: Infinity,
+    retry: false,
   });
 
-  // Check for existing session on mount
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("vetrinel_token") : null;
+  const startSession = useCallback(
+    (res: AuthResponse) => {
+      setToken(res.data.token);
+      // Drop any data cached for a previously signed-in user/business
+      queryClient.clear();
+      queryClient.setQueryData(AUTH_QUERY_KEY, res.data.user);
+      return res.data.user;
+    },
+    [queryClient],
+  );
 
-    if (!token) {
-      setState({ user: null, isLoading: false, isAuthenticated: false });
-      return;
-    }
+  const login = useCallback(
+    async (input: LoginInput) => startSession(await api.post<AuthResponse>("/auth/login", input)),
+    [startSession],
+  );
 
-    api
-      .get<{ success: boolean; data: User }>("/auth/me")
-      .then((res) => {
-        setState({ user: res.data, isLoading: false, isAuthenticated: true });
-      })
-      .catch(() => {
-        clearToken();
-        setState({ user: null, isLoading: false, isAuthenticated: false });
-      });
-  }, []);
-
-  const login = useCallback(async (input: LoginInput) => {
-    const res = await api.post<AuthResponse>("/auth/login", input);
-    setToken(res.data.token);
-    setState({ user: res.data.user, isLoading: false, isAuthenticated: true });
-    return res.data.user;
-  }, []);
-
-  const register = useCallback(async (input: RegisterInput) => {
-    const res = await api.post<AuthResponse>("/auth/register", input);
-    setToken(res.data.token);
-    setState({ user: res.data.user, isLoading: false, isAuthenticated: true });
-    return res.data.user;
-  }, []);
+  const register = useCallback(
+    async (input: RegisterInput) =>
+      startSession(await api.post<AuthResponse>("/auth/register", input)),
+    [startSession],
+  );
 
   const logout = useCallback(() => {
     clearToken();
-    setState({ user: null, isLoading: false, isAuthenticated: false });
-  }, []);
+    queryClient.clear();
+    queryClient.setQueryData(AUTH_QUERY_KEY, null);
+  }, [queryClient]);
+
+  const user = meQuery.data ?? null;
 
   return {
-    ...state,
+    user,
+    isLoading: meQuery.isLoading,
+    isAuthenticated: !!user,
     login,
     register,
     logout,

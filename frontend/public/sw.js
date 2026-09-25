@@ -1,6 +1,10 @@
 // public/sw.js - Vetrinel PWA Service Worker
-const CACHE_NAME = 'vetrinel-v2';
+// Bump CACHE_VERSION whenever the precached files change so old caches are purged.
+const CACHE_VERSION = 'v3';
+const CACHE_NAME = `vetrinel-${CACHE_VERSION}`;
+const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = [
+  OFFLINE_URL,
   '/manifest.webmanifest',
   '/icon-192.svg',
   '/icon-512.svg',
@@ -8,57 +12,62 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches
+      .open(CACHE_NAME)
+      // `reload` bypasses the HTTP cache so a fresh copy is precached.
+      .then((cache) => cache.addAll(STATIC_ASSETS.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
   // 1. Only handle GET requests
-  if (event.request.method !== 'GET') {
+  if (request.method !== 'GET') {
     return;
   }
 
-  const url = new URL(event.request.url);
+  const url = new URL(request.url);
 
-  // 2. NEVER intercept API calls or cross-origin requests
+  // 2. NEVER intercept API calls or cross-origin requests (e.g. a separate API host).
+  //    Returning without respondWith lets the browser handle them normally, uncached.
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api')) {
     return;
   }
 
-  // 3. For local navigation (HTML pages), try network first, fallback to cached offline shell
-  if (event.request.mode === 'navigate') {
+  // 3. Page navigations: network only, falling back to the offline page when the network fails.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/manifest.webmanifest');
-      })
+      fetch(request).catch(() =>
+        caches.match(OFFLINE_URL).then(
+          (cached) =>
+            cached ||
+            new Response('You are offline. / இணைய இணைப்பு இல்லை.', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            })
+        )
+      )
     );
     return;
   }
 
-  // 4. Cache first for static local assets (icons, manifest, etc.)
+  // 4. Cache first for the precached static assets only (icons, manifest, offline page).
   if (STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        return cachedResponse || fetch(event.request);
-      })
+      caches.match(request).then((cachedResponse) => cachedResponse || fetch(request))
     );
   }
 });

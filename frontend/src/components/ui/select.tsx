@@ -6,7 +6,52 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+type SelectItemEntry = { value: unknown; label: React.ReactNode }
+
+/**
+ * Recursively walks a React children tree and collects `{ value, label }`
+ * pairs from every `SelectItem` element found. Base UI's `Select.Value`
+ * renders the raw value (e.g. an ObjectId or `bank_transfer`) unless the
+ * Root receives `items`, so we derive them from the declared items.
+ */
+function collectSelectItems(
+  node: React.ReactNode,
+  acc: SelectItemEntry[] = []
+): SelectItemEntry[] {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as {
+      value?: unknown
+      label?: React.ReactNode
+      children?: React.ReactNode
+    }
+    if (child.type === SelectItem) {
+      acc.push({ value: props.value, label: props.children ?? props.label })
+      return
+    }
+    if (props.children != null) {
+      collectSelectItems(props.children, acc)
+    }
+  })
+  return acc
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  let resolvedItems = items
+  if (resolvedItems === undefined) {
+    const collected = collectSelectItems(children)
+    if (collected.length > 0) resolvedItems = collected
+  }
+  return (
+    <SelectPrimitive.Root<Value, Multiple> items={resolvedItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

@@ -3,7 +3,11 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useEmployees, Employee } from "../hooks/use-employees";
+import {
+  useEmployees,
+  Employee,
+  RecordEmployeeTransactionInput,
+} from "../hooks/use-employees";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +29,19 @@ import { HandCoins, Loader2, AlertCircle } from "lucide-react";
 
 interface EmployeeAdvanceDialogProps {
   employee: Employee;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
+}
+
+type TransactionType = RecordEmployeeTransactionInput["type"];
+const TRANSACTION_TYPES: readonly TransactionType[] = [
+  "ADVANCE_GIVEN",
+  "SALARY_PAID",
+  "ADVANCE_DEDUCTED",
+];
+
+function isTransactionType(value: string): value is TransactionType {
+  return (TRANSACTION_TYPES as readonly string[]).includes(value);
 }
 
 export function EmployeeAdvanceDialog({ employee, trigger, onSuccess }: EmployeeAdvanceDialogProps) {
@@ -34,13 +49,16 @@ export function EmployeeAdvanceDialog({ employee, trigger, onSuccess }: Employee
   const { recordTransaction } = useEmployees();
   const [open, setOpen] = useState(false);
 
-  const [type, setType] = useState<"ADVANCE_GIVEN" | "SALARY_PAID" | "ADVANCE_DEDUCTED">(
-    "ADVANCE_GIVEN"
-  );
+  const [type, setType] = useState<TransactionType>("ADVANCE_GIVEN");
   const [amountRupees, setAmountRupees] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) setError("");
+    setOpen(nextOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,21 +85,23 @@ export function EmployeeAdvanceDialog({ employee, trigger, onSuccess }: Employee
       setAmountRupees("");
       setNotes("");
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to record transaction");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record transaction");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 text-white font-medium text-xs hover:bg-amber-600 cursor-pointer">
-            <HandCoins className="h-3.5 w-3.5" />
-            {t("employees.giveAdvance")} / Salary
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger
+          render={<Button size="sm" className="gap-1.5 bg-amber-500 text-white hover:bg-amber-600" />}
+        >
+          <HandCoins className="h-3.5 w-3.5" />
+          {t("employees.giveAdvance")} / Salary
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -106,7 +126,7 @@ export function EmployeeAdvanceDialog({ employee, trigger, onSuccess }: Employee
 
           <div className="space-y-1.5">
             <Label>Transaction Type *</Label>
-            <Select value={type} onValueChange={(val) => val && setType(val as any)}>
+            <Select value={type} onValueChange={(val) => val && isTransactionType(val) && setType(val)}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

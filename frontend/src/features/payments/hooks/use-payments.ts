@@ -53,15 +53,13 @@ export function usePayments(options: { type?: string; partyType?: string; partyI
       return res.data;
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["payments"] });
+      const keys = ["payments", "dashboard", "daily-closing", "reports"];
       if (vars.partyType === "CUSTOMER") {
-        queryClient.invalidateQueries({ queryKey: ["customers"] });
-        queryClient.invalidateQueries({ queryKey: ["customer", vars.partyId] });
-        queryClient.invalidateQueries({ queryKey: ["customer-ledger", vars.partyId] });
+        keys.push("customers", "customer", "customer-ledger", "vatti");
       } else if (vars.partyType === "SUPPLIER") {
-        queryClient.invalidateQueries({ queryKey: ["suppliers"] });
-        queryClient.invalidateQueries({ queryKey: ["supplier", vars.partyId] });
+        keys.push("suppliers", "supplier");
       }
+      keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
     },
   });
 

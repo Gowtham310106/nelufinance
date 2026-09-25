@@ -38,6 +38,8 @@ export interface CreateEmployeeInput {
   notes?: string;
 }
 
+export type UpdateEmployeeInput = Partial<CreateEmployeeInput> & { active?: boolean };
+
 export interface RecordEmployeeTransactionInput {
   type: "ADVANCE_GIVEN" | "SALARY_PAID" | "ADVANCE_DEDUCTED";
   amountPaise: number;
@@ -80,6 +82,17 @@ export function useEmployees() {
     },
   });
 
+  const updateEmployee = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateEmployeeInput }) => {
+      const res = await api.put<{ success: boolean; data: Employee }>(`/employees/${id}`, data);
+      return res.data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee", id] });
+    },
+  });
+
   const recordTransaction = useMutation({
     mutationFn: async ({
       employeeId,
@@ -99,6 +112,8 @@ export function useEmployees() {
       queryClient.invalidateQueries({ queryKey: ["employee", employeeId] });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-closing"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
 
@@ -109,6 +124,7 @@ export function useEmployees() {
     refetch: listQuery.refetch,
     useEmployeeDetail,
     createEmployee,
+    updateEmployee,
     recordTransaction,
   };
 }

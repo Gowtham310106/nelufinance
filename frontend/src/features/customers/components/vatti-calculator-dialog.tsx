@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useVatti } from "../hooks/use-vatti";
 import { Customer } from "../hooks/use-customers";
 import {
@@ -15,24 +15,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calculator, Calendar, Printer, Percent } from "lucide-react";
+import { Calculator, Printer } from "lucide-react";
 
 interface VattiCalculatorDialogProps {
   customer: Customer;
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
 }
 
 const RATE_PRESETS = [1.0, 1.5, 2.0, 2.5, 3.0];
+const DEFAULT_RATE = 2.0;
+
+/** Today's date as YYYY-MM-DD in the device's local timezone (not UTC). */
+function localDateString(date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export function VattiCalculatorDialog({ customer, trigger }: VattiCalculatorDialogProps) {
   const t = useTranslations();
-  const locale = useLocale();
   const [open, setOpen] = useState(false);
 
-  const [rate, setRate] = useState<number>(customer.interestRate || 2.0);
-  const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  // Only fall back to the default when no rate is set; 0% is a valid rate.
+  const [rate, setRate] = useState<number>(customer.interestRate ?? DEFAULT_RATE);
+  const [asOfDate, setAsOfDate] = useState<string>(() => localDateString());
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setRate(customer.interestRate ?? DEFAULT_RATE);
+      setAsOfDate(localDateString());
+    }
+    setOpen(nextOpen);
+  };
 
   const { vatti, isLoading } = useVatti(open ? customer._id : "", rate, asOfDate);
 
@@ -41,15 +57,19 @@ export function VattiCalculatorDialog({ customer, trigger }: VattiCalculatorDial
   const totalDueRupees = (vatti?.totalDuePaise || 0) / 100;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-purple-600 text-white font-medium text-xs hover:bg-purple-700 cursor-pointer">
-            <Calculator className="h-3.5 w-3.5" />
-            {t("customers.interest")} (வட்டி)
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger
+          render={
+            <Button size="sm" className="gap-1.5 bg-purple-600 text-white hover:bg-purple-700" />
+          }
+        >
+          <Calculator className="h-3.5 w-3.5" />
+          {t("customers.interest")} (வட்டி)
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-lg">
         <DialogHeader>

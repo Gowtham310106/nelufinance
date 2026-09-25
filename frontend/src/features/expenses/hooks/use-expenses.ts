@@ -49,6 +49,7 @@ export function useExpenses(options: { category?: string; startDate?: string; en
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-closing"] });
     },
   });
 
@@ -60,6 +61,7 @@ export function useExpenses(options: { category?: string; startDate?: string; en
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-closing"] });
     },
   });
 

@@ -66,10 +66,18 @@ export function usePurchases(options: { startDate?: string; endDate?: string; su
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      // Prefix keys: invalidates every variant (filters, ids, dates) of each query.
+      [
+        "purchases",
+        "products",
+        "inventory",
+        "suppliers",
+        "supplier",
+        "payments",
+        "dashboard",
+        "reports",
+        "daily-closing",
+      ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
     },
   });
 

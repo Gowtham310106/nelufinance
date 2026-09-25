@@ -21,10 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Receipt, Plus, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, AlertCircle } from "lucide-react";
 
 interface ExpenseFormDialogProps {
-  trigger?: React.ReactNode;
+  trigger?: React.ReactElement;
   onSuccess?: () => void;
 }
 
@@ -52,6 +52,11 @@ export function ExpenseFormDialog({ trigger, onSuccess }: ExpenseFormDialogProps
   const [notes, setNotes] = useState<string>("");
   const [error, setError] = useState<string>("");
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) setError("");
+    setOpen(nextOpen);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -74,21 +79,21 @@ export function ExpenseFormDialog({ trigger, onSuccess }: ExpenseFormDialogProps
       setAmountRupees("");
       setNotes("");
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || "Failed to record expense");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record expense");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
-        {trigger || (
-          <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-rose-600 text-white font-medium text-sm hover:bg-rose-700 cursor-pointer">
-            <Plus className="h-4 w-4" />
-            {t("expenses.addExpense")}
-          </span>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {trigger ? (
+        <DialogTrigger render={trigger} />
+      ) : (
+        <DialogTrigger render={<Button className="gap-1.5 bg-rose-600 text-white hover:bg-rose-700" />}>
+          <Plus className="h-4 w-4" />
+          {t("expenses.addExpense")}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="max-w-md">
         <DialogHeader>
