@@ -134,7 +134,7 @@ export default function PurchasesPage() {
                         ₹{totalRupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </span>
                       <Badge variant="outline" className="text-[10px] uppercase">
-                        {t(`payments.${purchase.paymentMethod}` as any)}
+                        {t(`payments.${purchase.paymentMethod}`)}
                       </Badge>
                     </div>
 

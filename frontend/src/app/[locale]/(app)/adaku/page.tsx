@@ -2,9 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useDebounce } from "@/lib/use-debounce";
 import { Link } from "@/i18n/navigation";
-import { useAdaku } from "@/features/adaku/hooks/use-adaku";
+import { useAdaku, type AdakuKadanItem } from "@/features/adaku/hooks/use-adaku";
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import { generateAdakuPawnTicketPDF } from "@/lib/pdf-generator";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,29 +18,25 @@ import {
   Search,
   Phone,
   FileDown,
-  Calendar,
   Lock,
   ArrowRight,
-  ShieldCheck,
-  ImageIcon,
 } from "lucide-react";
 
 export default function AdakuPage() {
-  const t = useTranslations();
-  const locale = useLocale();
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search.trim(), 300);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { pledges, isLoading, summary, isSummaryLoading } = useAdaku({
+  const { pledges, isLoading, summary } = useAdaku({
     status: statusFilter === "all" ? undefined : statusFilter,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const totalLoansRupees = (summary?.totalActiveLoansPaise || 0) / 100;
   const monthlyVattiRupees = (summary?.monthlyExpectedVattiPaise || 0) / 100;
 
-  const handleExportPDF = (e: React.MouseEvent, pledge: any) => {
+  const handleExportPDF = (e: React.MouseEvent, pledge: AdakuKadanItem) => {
     e.stopPropagation();
     generateAdakuPawnTicketPDF(pledge, {
       name: user?.name || "Vetrinel Traders",

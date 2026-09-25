@@ -4,7 +4,9 @@
 import { use } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { useSuppliers } from "@/features/suppliers/hooks/use-suppliers";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import type { Supplier } from "@/features/suppliers/hooks/use-suppliers";
 import { usePurchases } from "@/features/purchases/hooks/use-purchases";
 import { usePayments } from "@/features/payments/hooks/use-payments";
 import { SupplierPaymentDialog } from "@/features/suppliers/components/supplier-payment-dialog";
@@ -20,14 +22,23 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
   const locale = useLocale();
   const router = useRouter();
 
-  const { suppliers, isLoading: isSuppliersLoading } = useSuppliers();
+  // Fetch this supplier directly (the list endpoint only returns active suppliers).
+  // Key sits under ["suppliers"] so list invalidations refresh it too.
+  const supplierQuery = useQuery({
+    queryKey: ["suppliers", "detail", id],
+    queryFn: async () => {
+      const res = await api.get<{ success: boolean; data: Supplier }>(`/suppliers/${id}`);
+      return res.data;
+    },
+  });
+  const supplier = supplierQuery.data;
+  const isSuppliersLoading = supplierQuery.isLoading;
   const { purchases, isLoading: isPurchasesLoading } = usePurchases({ supplierId: id });
   const { payments, isLoading: isPaymentsLoading } = usePayments({
     partyType: "SUPPLIER",
     partyId: id,
   });
 
-  const supplier = suppliers.find((s) => s._id === id);
 
   if (isSuppliersLoading || isPurchasesLoading || isPaymentsLoading) {
     return (
@@ -42,7 +53,9 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
   if (!supplier) {
     return (
       <div className="text-center p-12 space-y-3">
-        <p className="text-destructive font-semibold">Supplier not found</p>
+        <p className="text-destructive font-semibold">
+          {supplierQuery.error instanceof Error ? supplierQuery.error.message : "Supplier not found"}
+        </p>
         <Button variant="outline" onClick={() => router.push("/suppliers")}>
           Back to Suppliers
         </Button>

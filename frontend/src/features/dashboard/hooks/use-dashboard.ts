@@ -34,7 +34,7 @@ export interface DashboardMetrics {
   };
   recentTransactions: {
     id: string;
-    type: "SALE" | "PURCHASE" | "PAYMENT_RECEIVED" | "EXPENSE";
+    type: "SALE" | "PURCHASE" | "PAYMENT_RECEIVED" | "PAYMENT_GIVEN" | "EXPENSE";
     transactionNumber: string;
     partyName: string;
     amountPaise: number;

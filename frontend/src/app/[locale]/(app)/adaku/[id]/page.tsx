@@ -2,7 +2,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useAdaku } from "@/features/adaku/hooks/use-adaku";
 import { useAuth } from "@/features/auth/hooks/use-auth";
@@ -35,21 +35,20 @@ import {
   Coins,
   FileDown,
   Phone,
-  Calendar,
   Lock,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   HandCoins,
-  ShieldCheck,
   Printer,
   Maximize2,
 } from "lucide-react";
 
+type PayType = "INTEREST_ONLY" | "PRINCIPAL_REDUCTION" | "FULL_REDEMPTION";
+const PAY_TYPES: readonly PayType[] = ["INTEREST_ONLY", "PRINCIPAL_REDUCTION", "FULL_REDEMPTION"];
+
 export default function AdakuDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const t = useTranslations();
-  const locale = useLocale();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -59,9 +58,7 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
 
   // Settlement Dialog State
   const [payOpen, setPayOpen] = useState(false);
-  const [payType, setPayType] = useState<"INTEREST_ONLY" | "PRINCIPAL_REDUCTION" | "FULL_REDEMPTION">(
-    "INTEREST_ONLY"
-  );
+  const [payType, setPayType] = useState<PayType>("INTEREST_ONLY");
   const [interestRupees, setInterestRupees] = useState("");
   const [principalRupees, setPrincipalRupees] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -108,12 +105,39 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
     });
   };
 
+  // Prefill amounts for the chosen payment type from the live vatti calculation
+  const applyPayType = (type: PayType) => {
+    setPayType(type);
+    if (type === "INTEREST_ONLY") {
+      setInterestRupees(pendingInterestRupees > 0 ? pendingInterestRupees.toString() : "");
+      setPrincipalRupees("");
+    } else if (type === "FULL_REDEMPTION") {
+      setInterestRupees(pendingInterestRupees.toString());
+      setPrincipalRupees(loanRupees.toString());
+    } else {
+      setInterestRupees("");
+      setPrincipalRupees("");
+    }
+  };
+
+  // Reset the settlement form every time the dialog opens (default: interest-only, prefilled)
+  const handlePayOpenChange = (open: boolean) => {
+    if (open) {
+      applyPayType("INTEREST_ONLY");
+      setPaymentMethod("cash");
+      setNotes("");
+      setError("");
+    }
+    setPayOpen(open);
+  };
+
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    const intAmt = parseFloat(interestRupees || "0");
-    const prinAmt = parseFloat(principalRupees || "0");
+    // Only send the amounts that belong to the selected type (hidden fields may hold stale values)
+    const intAmt = payType === "PRINCIPAL_REDUCTION" ? 0 : parseFloat(interestRupees || "0") || 0;
+    const prinAmt = payType === "INTEREST_ONLY" ? 0 : parseFloat(principalRupees || "0") || 0;
 
     if (payType === "INTEREST_ONLY" && intAmt <= 0) {
       setError("Please enter interest amount to collect");
@@ -140,6 +164,11 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
       });
 
       setPayOpen(false);
+      setInterestRupees("");
+      setPrincipalRupees("");
+      setNotes("");
+      setPaymentMethod("cash");
+      setPayType("INTEREST_ONLY");
       refetch();
 
       // Download payment receipt
@@ -148,8 +177,8 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
         phone: user?.phone || "",
         address: "Tamil Nadu",
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to record payment");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record payment");
     }
   };
 
@@ -174,7 +203,7 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
           </Button>
 
           {!isRedeemed && (
-            <Dialog open={payOpen} onOpenChange={setPayOpen}>
+            <Dialog open={payOpen} onOpenChange={handlePayOpenChange}>
               <DialogTrigger>
                 <span className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-emerald-600 text-white font-medium text-xs hover:bg-emerald-700 cursor-pointer">
                   <HandCoins className="h-4 w-4" />
@@ -200,16 +229,8 @@ export default function AdakuDetailPage({ params }: { params: Promise<{ id: stri
                     <Select
                       value={payType}
                       onValueChange={(val) => {
-                        if (val) {
-                          setPayType(val as any);
-                          if (val === "INTEREST_ONLY") {
-                            setInterestRupees(pendingInterestRupees.toString());
-                            setPrincipalRupees("0");
-                          } else if (val === "FULL_REDEMPTION") {
-                            setInterestRupees(pendingInterestRupees.toString());
-                            setPrincipalRupees(loanRupees.toString());
-                          }
-                        }
+                        const next = PAY_TYPES.find((type) => type === val);
+                        if (next) applyPayType(next);
                       }}
                     >
                       <SelectTrigger className="w-full">

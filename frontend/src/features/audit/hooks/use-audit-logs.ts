@@ -21,12 +21,15 @@ export interface AuditLogItem {
     newValue: unknown;
   }[];
   reason?: string;
-  timestamp: string;
+  createdAt: string;
 }
 
-export function useAuditLogs(options: { entityType?: string; action?: string } = {}) {
+export function useAuditLogs(
+  options: { entityType?: string; action?: string; page?: number } = {},
+) {
   const query = useQuery({
     queryKey: ["audit-logs", options],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (options.entityType && options.entityType !== "all") {
@@ -34,6 +37,9 @@ export function useAuditLogs(options: { entityType?: string; action?: string } =
       }
       if (options.action && options.action !== "all") {
         params.append("action", options.action);
+      }
+      if (options.page && options.page > 1) {
+        params.append("page", String(options.page));
       }
 
       const endpoint = `/audit-logs${params.toString() ? `?${params.toString()}` : ""}`;

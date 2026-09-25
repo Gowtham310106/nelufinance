@@ -2,7 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
+import { useDebounce } from "@/lib/use-debounce";
 import { Link } from "@/i18n/navigation";
 import { useCustomers } from "@/features/customers/hooks/use-customers";
 import { useAdaku } from "@/features/adaku/hooks/use-adaku";
@@ -21,21 +22,42 @@ import {
   Coins,
   Users,
   HandCoins,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 export default function CreditPage() {
   const t = useTranslations();
-  const locale = useLocale();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search.trim(), 300);
 
-  const { customers, isLoading } = useCustomers({ search });
+  // Unfiltered list drives the totals so they don't change while searching
+  const {
+    customers: allCustomers,
+    isLoading: isAllLoading,
+    isError: isAllError,
+    error: allError,
+    refetch: refetchAll,
+  } = useCustomers();
+  // Filtered list for display (same query/cache as above when the search is empty)
+  const {
+    customers,
+    isLoading: isListLoading,
+    isError: isListError,
+    error: listError,
+    refetch: refetchList,
+  } = useCustomers(debouncedSearch ? { search: debouncedSearch } : {});
   const { summary } = useAdaku();
 
+  // Advances (negative balances) are not receivables — clamp to 0 like the dashboard
+  const allCreditCustomers = allCustomers.filter((c) => (c.currentBalancePaise || 0) > 0);
   const totalOutstandingRupees =
-    customers.reduce((sum, c) => sum + (c.currentBalancePaise || 0), 0) / 100;
+    allCreditCustomers.reduce((sum, c) => sum + Math.max(0, c.currentBalancePaise || 0), 0) / 100;
 
-  // Filter customers with pending dues
+  // Customers with pending dues matching the search
   const creditCustomers = customers.filter((c) => (c.currentBalancePaise || 0) > 0);
+  const isLoading = isListLoading;
+  const loadError = (isListError && listError) || (isAllError && allError) || null;
   const totalAdakuRupees = (summary?.totalActiveLoansPaise || 0) / 100;
 
   return (
@@ -76,12 +98,16 @@ export default function CreditPage() {
               Customer Trade Udhar (வாடிக்கையாளர் பாக்கி)
             </span>
             <Badge variant="destructive" className="text-[10px]">
-              {creditCustomers.length} Customers
+              {allCreditCustomers.length} Customers
             </Badge>
           </div>
-          <span className="text-2xl font-bold text-destructive rupee-display block mt-1">
-            ₹{totalOutstandingRupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-          </span>
+          {isAllLoading ? (
+            <Skeleton className="h-8 w-32 mt-1" />
+          ) : (
+            <span className="text-2xl font-bold text-destructive rupee-display block mt-1">
+              ₹{totalOutstandingRupees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+          )}
           <span className="text-[11px] text-muted-foreground block mt-0.5">
             Pending receivable from sales
           </span>
@@ -118,7 +144,29 @@ export default function CreditPage() {
       </div>
 
       {/* Credit Customers List */}
-      {isLoading ? (
+      {loadError ? (
+        <Card className="p-6 flex flex-col items-center text-center gap-3 border-destructive/40 bg-destructive/5">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+          <div className="space-y-1">
+            <p className="font-medium text-sm text-destructive">{t("common.loadError")}</p>
+            {loadError instanceof Error && (
+              <p className="text-xs text-muted-foreground">{loadError.message}</p>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => {
+              refetchAll();
+              refetchList();
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t("common.retry")}
+          </Button>
+        </Card>
+      ) : isLoading ? (
         <div className="space-y-2.5">
           {[1, 2, 3].map((n) => (
             <Card key={n} className="p-4 space-y-2">
@@ -133,10 +181,14 @@ export default function CreditPage() {
             <CreditCard className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <p className="font-medium text-sm">No Pending Customer Udhar</p>
-            <p className="text-xs text-muted-foreground">
-              All customers have settled their balances.
+            <p className="font-medium text-sm">
+              {debouncedSearch ? t("common.noData") : "No Pending Customer Udhar"}
             </p>
+            {!debouncedSearch && (
+              <p className="text-xs text-muted-foreground">
+                All customers have settled their balances.
+              </p>
+            )}
           </div>
         </Card>
       ) : (

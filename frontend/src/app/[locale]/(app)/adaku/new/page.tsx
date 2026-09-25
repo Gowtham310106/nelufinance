@@ -1,8 +1,9 @@
 // src/app/[locale]/(app)/adaku/new/page.tsx
 "use client";
 
-import { useState, useRef } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useState, useRef, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useCustomers } from "@/features/customers/hooks/use-customers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,35 +21,40 @@ import {
 import {
   Coins,
   Camera,
-  Upload,
   Trash2,
   Lock,
   Loader2,
   AlertCircle,
   ArrowLeft,
   Scale,
-  Sparkles,
   CheckCircle2,
 } from "lucide-react";
-import { api } from "@/lib/api-client";
+import { getToken, clearToken } from "@/lib/api-client";
+
+// Same base URL as src/lib/api-client.ts (multipart upload can't go through its JSON helper)
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+
+type AdakuItemType = "gold" | "silver" | "brass_metal" | "other";
+const ITEM_TYPES: readonly AdakuItemType[] = ["gold", "silver", "brass_metal", "other"];
 
 const RATE_PRESETS = [1.0, 1.5, 2.0, 2.5, 3.0];
 
 export default function NewAdakuPage() {
   const t = useTranslations();
-  const locale = useLocale();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { customers } = useCustomers();
 
   // Form State
+  const [selectedCustomerId, setSelectedCustomerId] = useState("new");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAadhaar, setCustomerAadhaar] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
 
-  const [itemType, setItemType] = useState<"gold" | "silver" | "brass_metal" | "other">("gold");
+  const [itemType, setItemType] = useState<AdakuItemType>("gold");
   const [purityKarat, setPurityKarat] = useState("22K (916 KDM)");
   const [itemDescription, setItemDescription] = useState("");
   const [itemCount, setItemCount] = useState("1");
@@ -63,6 +69,17 @@ export default function NewAdakuPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
+  // Revoke any remaining object URLs when leaving the page
+  const previewUrlsRef = useRef<string[]>([]);
+  useEffect(() => {
+    previewUrlsRef.current = previewUrls;
+  }, [previewUrls]);
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -73,17 +90,26 @@ export default function NewAdakuPage() {
   const netPavan = (netGrams / 8).toFixed(2); // 1 Pavan = 8 grams in Tamil Nadu
 
   const handleCustomerSelect = (custId: string) => {
+    setSelectedCustomerId(custId);
     const cust = customers.find((c) => c._id === custId);
     if (cust) {
       setCustomerName(cust.name);
       setCustomerPhone(cust.phone);
-      if (cust.address) setCustomerAddress(cust.address);
+      setCustomerAddress(cust.address || "");
     }
   };
+
+  // Only link the pledge to the picked customer while their phone is unchanged
+  const pickedCustomer = customers.find((c) => c._id === selectedCustomerId);
+  const linkedCustomerId =
+    pickedCustomer && pickedCustomer.phone.trim() === customerPhone.trim() ? pickedCustomer._id : undefined;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const filesArr = Array.from(e.target.files);
+
+    // Reset so picking the same file again still fires onChange
+    e.target.value = "";
 
     const totalAllowed = 5 - selectedFiles.length;
     const filesToAdd = filesArr.slice(0, totalAllowed);
@@ -97,6 +123,8 @@ export default function NewAdakuPage() {
   };
 
   const removeImage = (index: number) => {
+    const removedUrl = previewUrls[index];
+    if (removedUrl) URL.revokeObjectURL(removedUrl);
     const updatedFiles = selectedFiles.filter((_, i) => i !== index);
     const updatedPreviews = previewUrls.filter((_, i) => i !== index);
     setSelectedFiles(updatedFiles);
@@ -123,6 +151,7 @@ export default function NewAdakuPage() {
     try {
       const formData = new FormData();
       const payload = {
+        ...(linkedCustomerId ? { customerId: linkedCustomerId } : {}),
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
         customerAadhaar: customerAadhaar.trim(),
@@ -147,8 +176,8 @@ export default function NewAdakuPage() {
         formData.append("images", file);
       });
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("vetrinel_token") : null;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/adaku`, {
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/adaku`, {
         method: "POST",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -156,14 +185,30 @@ export default function NewAdakuPage() {
         body: formData,
       });
 
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || "Failed to create pledge ticket");
+      // Tolerate non-JSON bodies (gateway/proxy errors)
+      const text = await res.text();
+      let data: { success?: boolean; error?: string; message?: string; data?: { _id?: string } } | null =
+        null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { message: text.slice(0, 200) };
       }
 
+      if (res.status === 401 && token) {
+        clearToken();
+        router.push("/login");
+        return;
+      }
+      if (!res.ok || !data?.success || !data.data?._id) {
+        throw new Error(data?.error || data?.message || "Failed to create pledge ticket");
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["adaku"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       router.push(`/adaku/${data.data._id}`);
-    } catch (err: any) {
-      setError(err.message || "Failed to record pledge loan");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record pledge loan");
     } finally {
       setIsSubmitting(false);
     }
@@ -206,11 +251,17 @@ export default function NewAdakuPage() {
                   1. Customer Details (வாடிக்கையாளர் விவரம்)
                 </h4>
                 {customers.length > 0 && (
-                  <Select onValueChange={(val) => { if (typeof val === "string") handleCustomerSelect(val); }}>
+                  <Select
+                    value={selectedCustomerId}
+                    onValueChange={(val) => {
+                      if (typeof val === "string") handleCustomerSelect(val);
+                    }}
+                  >
                     <SelectTrigger className="w-44 h-7 text-xs bg-background">
                       <SelectValue placeholder="Pick Existing" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="new">-- New customer --</SelectItem>
                       {customers.map((c) => (
                         <SelectItem key={c._id} value={c._id}>
                           {c.name} ({c.phone})
@@ -279,7 +330,10 @@ export default function NewAdakuPage() {
                   <Label className="text-xs font-semibold">Collateral Type *</Label>
                   <Select
                     value={itemType}
-                    onValueChange={(val) => val && setItemType(val as any)}
+                    onValueChange={(val) => {
+                      const next = ITEM_TYPES.find((type) => type === val);
+                      if (next) setItemType(next);
+                    }}
                   >
                     <SelectTrigger className="w-full bg-background">
                       <SelectValue />

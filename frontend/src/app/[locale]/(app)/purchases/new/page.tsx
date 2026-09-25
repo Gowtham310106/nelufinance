@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  PackagePlus,
   Plus,
   Trash2,
   ArrowLeft,
@@ -80,7 +79,7 @@ export default function NewPurchasePage() {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  const updateItem = (id: string, field: keyof FormItem, value: any) => {
+  const updateItem = (id: string, field: keyof FormItem, value: string) => {
     setItems(
       items.map((item) => {
         if (item.id !== id) return item;
@@ -99,22 +98,34 @@ export default function NewPurchasePage() {
     );
   };
 
-  // Calculations
+  // Calculations — money is kept in integer paise (same rounding as the backend)
+  const toPaise = (rupees: string) => Math.round((parseFloat(rupees || "0") || 0) * 100);
+
   const calculatedItems = items.map((item) => {
     const unitConfig = UNITS.find((u) => u.value === item.inputUnit) || UNITS[0];
-    const qty = parseFloat(item.inputQuantity || "0");
+    const qty = parseFloat(item.inputQuantity || "0") || 0;
     const weightKg = qty * unitConfig.multiplier;
-    const rate = parseFloat(item.ratePerKg || "0");
-    const totalRupees = weightKg * rate;
-    return { ...item, weightKg, rate, totalRupees };
+    const ratePaise = toPaise(item.ratePerKg);
+    const totalPaise = Math.round(weightKg * ratePaise);
+    const totalRupees = totalPaise / 100;
+    // Backend requires rate > 0 for every submitted row
+    const isRateMissing = !!item.productId && qty > 0 && ratePaise <= 0;
+
+    return { ...item, weightKg, ratePaise, totalPaise, totalRupees, isRateMissing };
   });
 
-  const totalBillRupees = calculatedItems.reduce((sum, item) => sum + item.totalRupees, 0);
+  const totalBillPaise = calculatedItems.reduce((sum, item) => sum + item.totalPaise, 0);
+  const totalBillRupees = totalBillPaise / 100;
   const totalWeightKg = calculatedItems.reduce((sum, item) => sum + item.weightKg, 0);
 
-  // Auto-fill paid amount with total unless user edited it
-  const paidRupees = paidAmountRupees !== "" ? parseFloat(paidAmountRupees || "0") : totalBillRupees;
-  const pendingRupees = Math.max(0, totalBillRupees - paidRupees);
+  // Auto-fill paid with total unless the user typed something else
+  const paidPaise = paidAmountRupees !== "" ? Math.max(0, toPaise(paidAmountRupees)) : totalBillPaise;
+  const pendingPaise = Math.max(0, totalBillPaise - paidPaise);
+  const pendingRupees = pendingPaise / 100;
+
+  // Credit (unpaid balance) must be tracked against a supplier
+  const needsParty = supplierId === "none" && pendingPaise > 0;
+  const hasRateErrors = calculatedItems.some((item) => item.isRateMissing);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +134,15 @@ export default function NewPurchasePage() {
     // Validation
     const validItems = items.filter((item) => item.productId && parseFloat(item.inputQuantity) > 0);
     if (validItems.length === 0) {
-      setError(t("purchases.selectProduct") + " & enter quantity");
+      setError(t("common.itemsRequired"));
+      return;
+    }
+    if (hasRateErrors) {
+      setError(t("purchases.rateRequired"));
+      return;
+    }
+    if (needsParty) {
+      setError(t("purchases.creditNeedsSupplier"));
       return;
     }
 
@@ -134,16 +153,16 @@ export default function NewPurchasePage() {
           productId: item.productId,
           inputUnit: item.inputUnit,
           inputQuantity: parseFloat(item.inputQuantity),
-          ratePaisePerKg: Math.round(parseFloat(item.ratePerKg || "0") * 100),
+          ratePaisePerKg: toPaise(item.ratePerKg),
         })),
-        paidAmountPaise: Math.round(paidRupees * 100),
-        paymentMethod: paymentMethod as any,
+        paidAmountPaise: Math.min(paidPaise, totalBillPaise),
+        paymentMethod,
         notes,
       });
 
       router.push("/purchases");
-    } catch (err: any) {
-      setError(err.message || "Failed to record purchase");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record purchase");
     }
   };
 
@@ -313,6 +332,13 @@ export default function NewPurchasePage() {
                     </div>
                   </div>
 
+                  {calc.isRateMissing && (
+                    <div className="text-[11px] text-destructive flex items-center gap-1 bg-destructive/10 p-2 rounded">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{t("purchases.rateRequired")}</span>
+                    </div>
+                  )}
+
                   {/* Row Summary */}
                   {calc.weightKg > 0 && calc.totalRupees > 0 && (
                     <div className="pt-2 border-t flex justify-between items-center text-xs">
@@ -367,6 +393,20 @@ export default function NewPurchasePage() {
               </div>
             </div>
 
+            {needsParty && (
+              <div className="text-xs text-destructive flex flex-wrap items-center gap-2 bg-destructive/10 p-2 rounded">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">{t("purchases.creditNeedsSupplier")}</span>
+                <button
+                  type="button"
+                  className="underline font-medium"
+                  onClick={() => setPaidAmountRupees("")}
+                >
+                  {t("common.markFullyPaid")}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-1">
               <Label className="text-xs">{t("purchases.paymentMethod")}</Label>
               <Select value={paymentMethod} onValueChange={(val) => val && setPaymentMethod(val)}>
@@ -399,7 +439,7 @@ export default function NewPurchasePage() {
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold gap-2"
-          disabled={createPurchase.isPending || totalBillRupees <= 0}
+          disabled={createPurchase.isPending || totalBillPaise <= 0 || needsParty || hasRateErrors}
         >
           {createPurchase.isPending ? (
             <Loader2 className="h-5 w-5 animate-spin" />

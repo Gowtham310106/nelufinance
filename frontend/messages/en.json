@@ -38,7 +38,15 @@
     "kg": "kg",
     "quintal": "quintal",
     "tonne": "tonne",
-    "bag": "bag"
+    "bag": "bag",
+    "tagline": "Rice & Paddy Trading",
+    "loadError": "Couldn't load data",
+    "retry": "Retry",
+    "itemsRequired": "Select a product and enter a quantity",
+    "markFullyPaid": "Mark fully paid",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you're looking for doesn't exist or has been moved.",
+    "goToDashboard": "Go to Dashboard"
   },
   "auth": {
     "login": "Login",
@@ -79,7 +87,8 @@
     "auditLogs": "Audit Logs",
     "products": "Products",
     "weightCheck": "Weight Check",
-    "dailyClosing": "Daily Closing"
+    "dailyClosing": "Daily Closing",
+    "adaku": "Adaku (Pledge)"
   },
   "dashboard": {
     "greeting": {
@@ -146,7 +155,9 @@
     "selectProduct": "Select Product",
     "addItem": "Add Item",
     "items": "Items",
-    "noItems": "No items added yet"
+    "noItems": "No items added yet",
+    "creditNeedsCustomer": "Select a customer for credit sales",
+    "rateRequired": "Enter a rate greater than 0 for every item"
   },
   "purchases": {
     "title": "Purchases",
@@ -162,7 +173,9 @@
     "confirmPurchase": "Confirm Purchase",
     "purchaseSuccess": "Purchase recorded successfully",
     "selectSupplier": "Select Supplier",
-    "selectProduct": "Select Product"
+    "selectProduct": "Select Product",
+    "creditNeedsSupplier": "Select a supplier for credit purchases",
+    "rateRequired": "Enter a rate greater than 0 for every item"
   },
   "inventory": {
     "title": "Inventory",
@@ -190,7 +203,8 @@
     "ledger": "Ledger",
     "receivePayment": "Receive Payment",
     "totalPending": "Total Pending",
-    "noCustomers": "No customers added yet"
+    "noCustomers": "No customers added yet",
+    "interest": "Interest"
   },
   "suppliers": {
     "title": "Suppliers",
@@ -217,7 +231,8 @@
       "food": "Food",
       "fuel": "Fuel",
       "other": "Other"
-    }
+    },
+    "deleteConfirm": "Delete this expense? This cannot be undone."
   },
   "payments": {
     "cash": "Cash",
@@ -255,7 +270,11 @@
     "dateRange": "Date Range",
     "from": "From",
     "to": "To",
-    "generate": "Generate Report"
+    "generate": "Generate Report",
+    "profitLoss": "Profit & Loss",
+    "revenue": "Revenue",
+    "grossProfit": "Gross Profit",
+    "netProfit": "Net Profit"
   },
   "weightReconciliation": {
     "title": "Weight Check",
@@ -307,7 +326,9 @@
     "activity": "Activity",
     "salesCount": "Sales Count",
     "owner": "Owner",
-    "employee": "Employee"
+    "employee": "Employee",
+    "currentAdvance": "Current Advance",
+    "giveAdvance": "Give Advance"
   },
   "settings": {
     "title": "Settings",
@@ -323,7 +344,11 @@
     "tamil": "Tamil",
     "loadDemoData": "Load Demo Data",
     "demoDataLoaded": "Demo data loaded successfully",
-    "demoDataConfirm": "This will add sample data to your business. Continue?"
+    "demoDataConfirm": "This will add sample data to your business. Continue?",
+    "saveChanges": "Save Changes",
+    "saved": "Business details saved",
+    "ownerOnly": "Only the owner can edit business details",
+    "allowNegativeStock": "Allow sales when stock is insufficient"
   },
   "onboarding": {
     "title": "Set Up Your Business",

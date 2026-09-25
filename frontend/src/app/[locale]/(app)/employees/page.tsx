@@ -86,7 +86,7 @@ export default function EmployeesPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-foreground">{emp.name}</span>
                       <Badge variant="secondary" className="text-[10px] capitalize">
-                        {t(`employees.roles.${emp.role}` as any)}
+                        {t(`employees.roles.${emp.role}`)}
                       </Badge>
                     </div>
 
@@ -97,7 +97,7 @@ export default function EmployeesPage() {
                       </a>
                       <span>•</span>
                       <span>
-                        Rate: ₹{baseWageRupees} / {t(`employees.salaryTypes.${emp.salaryType}` as any)}
+                        Rate: ₹{baseWageRupees} / {t(`employees.salaryTypes.${emp.salaryType}`)}
                       </span>
                     </div>
                   </div>

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useAuditLogs } from "@/features/audit/hooks/use-audit-logs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ClipboardList, ShieldCheck, User, Calendar, RefreshCw } from "lucide-react";
+import { ShieldCheck, User, Calendar, RefreshCw } from "lucide-react";
 
 const ENTITY_TYPES = [
   "all",
@@ -29,6 +29,9 @@ const ENTITY_TYPES = [
   "DailyClosing",
   "WeightReconciliation",
   "Employee",
+  "EmployeeAdvance",
+  "AdakuKadan",
+  "AdakuPayment",
 ] as const;
 
 export default function AuditLogsPage() {
@@ -36,9 +39,12 @@ export default function AuditLogsPage() {
   const locale = useLocale();
 
   const [entityType, setEntityType] = useState<string>("all");
-  const { logs, isLoading, isError, refetch } = useAuditLogs({
+  const [page, setPage] = useState(1);
+  const { logs, pagination, isLoading, isError, refetch } = useAuditLogs({
     entityType: entityType === "all" ? undefined : entityType,
+    page,
   });
+  const totalPages = pagination?.pages ?? 1;
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto pb-12">
@@ -52,7 +58,7 @@ export default function AuditLogsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Select value={entityType} onValueChange={(val) => val && setEntityType(val)}>
+          <Select value={entityType} onValueChange={(val) => { if (val) { setEntityType(val); setPage(1); } }}>
             <SelectTrigger className="w-48 h-8 text-xs">
               <SelectValue placeholder="Filter by Entity" />
             </SelectTrigger>
@@ -93,8 +99,35 @@ export default function AuditLogsPage() {
         </Card>
       ) : (
         <div className="space-y-2.5">
+          {pagination && totalPages > 1 && (
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>
+                Page {page} of {totalPages} • {pagination.total} entries
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  ‹ Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next ›
+                </Button>
+              </div>
+            </div>
+          )}
           {logs.map((log) => {
-            const dateStr = new Date(log.timestamp).toLocaleDateString(
+            const dateStr = new Date(log.createdAt).toLocaleDateString(
               locale === "ta" ? "ta-IN" : "en-IN",
               { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }
             );

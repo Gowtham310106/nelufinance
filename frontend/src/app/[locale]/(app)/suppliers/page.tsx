@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDebounce } from "@/lib/use-debounce";
 import { useTranslations } from "next-intl";
 import { useSuppliers } from "@/features/suppliers/hooks/use-suppliers";
 import { SupplierFormDialog } from "@/features/suppliers/components/supplier-form-dialog";
@@ -14,8 +15,9 @@ import { Search, Truck, Phone, MapPin, Edit } from "lucide-react";
 export default function SuppliersPage() {
   const t = useTranslations();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search.trim(), 300);
 
-  const { suppliers, isLoading, isError } = useSuppliers({ search });
+  const { suppliers, isLoading, isError } = useSuppliers({ search: debouncedSearch });
 
   const totalPayable = suppliers.reduce((sum, s) => sum + (s.currentPayablePaise || 0), 0);
 

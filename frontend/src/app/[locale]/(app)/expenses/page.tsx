@@ -21,14 +21,6 @@ import {
   Calendar,
   Trash2,
   AlertCircle,
-  Truck,
-  Zap,
-  UserCheck,
-  Building,
-  Wrench,
-  Utensils,
-  Fuel,
-  Package,
 } from "lucide-react";
 
 const EXPENSE_CATEGORIES = [
@@ -53,6 +45,18 @@ export default function ExpensesPage() {
   const { expenses, isLoading, isError, deleteExpense } = useExpenses({
     category: category === "all" ? undefined : category,
   });
+
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleDelete = async (expenseId: string) => {
+    if (!window.confirm(t("expenses.deleteConfirm"))) return;
+    setDeleteError("");
+    try {
+      await deleteExpense.mutateAsync(expenseId);
+    } catch (err) {
+      setDeleteError(err instanceof Error && err.message ? err.message : t("common.error"));
+    }
+  };
 
   const totalExpenseRupees =
     expenses.reduce((sum, e) => sum + e.amountPaise, 0) / 100;
@@ -88,6 +92,13 @@ export default function ExpensesPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {deleteError && (
+        <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-lg flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{deleteError}</span>
+        </div>
+      )}
 
       {/* Expenses List */}
       {isLoading ? (
@@ -128,7 +139,7 @@ export default function ExpensesPage() {
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs font-semibold">
-                        {t(`expenses.categories.${expense.category}` as any)}
+                        {t(`expenses.categories.${expense.category}`)}
                       </Badge>
                       <span className="font-mono text-[10px] text-muted-foreground">
                         {expense.transactionNumber}
@@ -159,7 +170,8 @@ export default function ExpensesPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => deleteExpense.mutate(expense._id)}
+                      onClick={() => handleDelete(expense._id)}
+                      aria-label={t("common.delete")}
                       disabled={deleteExpense.isPending}
                     >
                       <Trash2 className="h-4 w-4" />

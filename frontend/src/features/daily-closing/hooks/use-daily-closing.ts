@@ -22,6 +22,10 @@ export interface DailyClosingRecord {
   cashPaymentsReceivedPaise: number;
   cashPaymentsGivenPaise: number;
   cashExpensesPaise: number;
+  purchaseCashOutPaise?: number;
+  advancesPaidPaise?: number;
+  adakuLoansOutPaise?: number;
+  adakuReceiptsPaise?: number;
   expectedClosingCashPaise: number;
   actualCashInDrawerPaise: number;
   cashVariancePaise: number;
@@ -40,6 +44,10 @@ export interface DailyClosingPreview {
   cashPaymentsReceivedPaise: number;
   cashPaymentsGivenPaise: number;
   cashExpensesPaise: number;
+  purchaseCashOutPaise?: number;
+  advancesPaidPaise?: number;
+  adakuLoansOutPaise?: number;
+  adakuReceiptsPaise?: number;
   expectedClosingCashPaise: number;
   alreadyClosed: boolean;
   existingClosing?: DailyClosingRecord;

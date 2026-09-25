@@ -6,7 +6,6 @@ import { useAuth } from "@/features/auth/hooks/use-auth";
 import { useDashboard } from "@/features/dashboard/hooks/use-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@/i18n/navigation";
 import {
@@ -18,10 +17,8 @@ import {
   Warehouse,
   TrendingUp,
   Users,
-  Truck,
   Package,
   AlertTriangle,
-  ArrowRight,
   ArrowDownLeft,
   ArrowUpRight,
   RefreshCw,
@@ -38,7 +35,7 @@ export default function DashboardPage() {
   const t = useTranslations();
   const locale = useLocale();
   const { user } = useAuth();
-  const { metrics, isLoading, isError, refetch } = useDashboard();
+  const { metrics, isLoading, isError, error, refetch } = useDashboard();
 
   const greeting = getGreeting(t);
 
@@ -84,7 +81,6 @@ export default function DashboardPage() {
   const todaySalesRupees = (metrics?.today.salesAmountPaise || 0) / 100;
   const todayProfitRupees = (metrics?.today.grossProfitPaise || 0) / 100;
   const customerPendingRupees = (metrics?.overall.totalCustomerPendingPaise || 0) / 100;
-  const supplierPayableRupees = (metrics?.overall.totalSupplierPayablePaise || 0) / 100;
   const totalStockKg = metrics?.overall.totalStockKg || 0;
   const totalValuationRupees = (metrics?.overall.totalValuationPaise || 0) / 100;
   const lowStockCount = metrics?.overall.lowStockCount || 0;
@@ -106,14 +102,55 @@ export default function DashboardPage() {
             })}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="self-start sm:self-auto gap-1.5 h-8 text-xs">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          className="self-start sm:self-auto gap-1.5 h-8 text-xs"
+        >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
         </Button>
       </div>
 
+      {/* Error state (only when there is nothing cached to show) */}
+      {isError && !metrics && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-destructive">{t("common.loadError")}</p>
+                {error instanceof Error && error.message && (
+                  <p className="text-xs text-muted-foreground">{error.message}</p>
+                )}
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => refetch()} className="gap-1.5 self-start sm:self-auto">
+              <RefreshCw className="h-3.5 w-3.5" />
+              {t("common.retry")}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading skeletons for KPI cards */}
+      {isLoading && !metrics && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4 space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-7 w-28" />
+                <Skeleton className="h-3 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Low Stock Warning Banner */}
-      {lowStockCount > 0 && (
+      {metrics && lowStockCount > 0 && (
         <Card className="border-amber-500/40 bg-amber-500/10">
           <CardContent className="p-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -138,6 +175,7 @@ export default function DashboardPage() {
       )}
 
       {/* Primary Metric KPI Cards */}
+      {metrics && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Today's Sales */}
         <Card className="hover:shadow-xs transition-shadow">
@@ -203,6 +241,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Quick Action Grid */}
       <div className="space-y-2.5">
@@ -227,12 +266,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Loading skeleton for summary & activity */}
+      {isLoading && !metrics && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Skeleton className="h-56 w-full lg:col-span-1" />
+          <Skeleton className="h-56 w-full lg:col-span-2" />
+        </div>
+      )}
+
       {/* Today's Cash Flow Summary & Recent Activities Grid */}
+      {metrics && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Today's Cash & Credit Summary */}
         <Card className="lg:col-span-1">
           <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-semibold">Today's Summary</CardTitle>
+            <CardTitle className="text-sm font-semibold">Today&apos;s Summary</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-2 space-y-3 text-xs">
             <div className="flex justify-between items-center py-1.5 border-b">
@@ -250,7 +298,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex justify-between items-center py-1.5 border-b">
-              <span className="text-muted-foreground">Today's Expenses:</span>
+              <span className="text-muted-foreground">Today&apos;s Expenses:</span>
               <span className="font-bold text-rose-600 rupee-display">
                 ₹{((metrics?.today.expensesAmountPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
@@ -289,9 +337,7 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {metrics.recentTransactions.map((txn) => {
                   const isSale = txn.type === "SALE";
-                  const isPurchase = txn.type === "PURCHASE";
                   const isPayment = txn.type === "PAYMENT_RECEIVED";
-                  const isExpense = txn.type === "EXPENSE";
 
                   return (
                     <div
@@ -344,6 +390,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDebounce } from "@/lib/use-debounce";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useCustomers } from "@/features/customers/hooks/use-customers";
@@ -11,13 +12,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Users, Phone, MapPin, Edit, FileText, ArrowRight } from "lucide-react";
+import { Search, Users, Phone, MapPin, Edit, FileText } from "lucide-react";
 
 export default function CustomersPage() {
   const t = useTranslations();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search.trim(), 300);
 
-  const { customers, isLoading, isError } = useCustomers({ search });
+  const { customers, isLoading, isError } = useCustomers({ search: debouncedSearch });
 
   const totalOutstanding =
     customers.reduce((sum, c) => sum + (c.currentBalancePaise || 0), 0) / 100;

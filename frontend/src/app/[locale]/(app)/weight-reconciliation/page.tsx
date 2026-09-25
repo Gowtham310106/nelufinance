@@ -30,6 +30,14 @@ import {
   Layers,
 } from "lucide-react";
 
+const RECONCILIATION_ACTIONS = [
+  "ACCEPT_WEIGHBRIDGE",
+  "ACCEPT_BAG_COUNT",
+  "SPLIT_DIFFERENCE",
+  "DISPUTED",
+] as const;
+type ReconciliationAction = (typeof RECONCILIATION_ACTIONS)[number];
+
 export default function WeightReconciliationPage() {
   const t = useTranslations();
   const locale = useLocale();
@@ -47,9 +55,7 @@ export default function WeightReconciliationPage() {
   const [tareWeight, setTareWeight] = useState("");
   const [bagCount, setBagCount] = useState("");
   const [bagStandardWeight, setBagStandardWeight] = useState("75");
-  const [actionTaken, setActionTaken] = useState<
-    "ACCEPT_WEIGHBRIDGE" | "ACCEPT_BAG_COUNT" | "SPLIT_DIFFERENCE" | "DISPUTED"
-  >("ACCEPT_WEIGHBRIDGE");
+  const [actionTaken, setActionTaken] = useState<ReconciliationAction>("ACCEPT_WEIGHBRIDGE");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
 
@@ -98,8 +104,8 @@ export default function WeightReconciliationPage() {
       setTareWeight("");
       setBagCount("");
       setNotes("");
-    } catch (err: any) {
-      setError(err.message || "Failed to record weighbridge check");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to record weighbridge check");
     }
   };
 
@@ -297,7 +303,10 @@ export default function WeightReconciliationPage() {
                   <Label className="text-xs whitespace-nowrap">Accepted As:</Label>
                   <Select
                     value={actionTaken}
-                    onValueChange={(val) => val && setActionTaken(val as any)}
+                    onValueChange={(val) => {
+                      const next = RECONCILIATION_ACTIONS.find((a) => a === val);
+                      if (next) setActionTaken(next);
+                    }}
                   >
                     <SelectTrigger className="w-48 bg-background h-8 text-xs">
                       <SelectValue />

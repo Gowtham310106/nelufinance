@@ -30,8 +30,8 @@ export default function LoginPage() {
       await login({ phone, password });
       // The backend always links a business on login, so go straight to the dashboard
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || t("auth.loginFailed"));
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("auth.loginFailed"));
     } finally {
       setIsSubmitting(false);
     }

@@ -68,7 +68,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold">{employee.name}</h2>
                 <Badge variant="secondary" className="capitalize">
-                  {t(`employees.roles.${employee.role}` as any)}
+                  {t(`employees.roles.${employee.role}`)}
                 </Badge>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -78,7 +78,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 </a>
                 <span>•</span>
                 <span>
-                  Rate: ₹{baseWageRupees} / {t(`employees.salaryTypes.${employee.salaryType}` as any)}
+                  Rate: ₹{baseWageRupees} / {t(`employees.salaryTypes.${employee.salaryType}`)}
                 </span>
               </div>
             </div>

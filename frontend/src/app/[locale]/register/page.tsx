@@ -36,8 +36,8 @@ export default function RegisterPage() {
         language: locale as "en" | "ta",
       });
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || t("auth.registerFailed"));
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("auth.registerFailed"));
     } finally {
       setIsSubmitting(false);
     }

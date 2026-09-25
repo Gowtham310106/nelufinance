@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { useSales } from "@/features/sales/hooks/use-sales";
+import { useSales, type Sale } from "@/features/sales/hooks/use-sales";
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import { generateSaleBillPDF } from "@/lib/pdf-generator";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +34,7 @@ export default function SalesPage() {
   const totalCredit = sales.reduce((sum, s) => sum + s.creditAmountPaise, 0) / 100;
   const totalGrossProfit = sales.reduce((sum, s) => sum + (s.grossProfitPaise || 0), 0) / 100;
 
-  const handlePrintPDF = (e: React.MouseEvent, sale: any) => {
+  const handlePrintPDF = (e: React.MouseEvent, sale: Sale) => {
     e.stopPropagation();
     generateSaleBillPDF(sale, {
       name: user?.name || "Vetrinel Rice Traders",
@@ -175,7 +175,7 @@ export default function SalesPage() {
 
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] uppercase">
-                        {t(`payments.${sale.paymentMethod}` as any)}
+                        {t(`payments.${sale.paymentMethod}`)}
                       </Badge>
                       {creditRupees > 0 ? (
                         <Badge variant="destructive" className="text-[10px]">

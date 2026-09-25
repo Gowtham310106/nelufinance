@@ -1,51 +1,49 @@
 // src/app/[locale]/(app)/reports/page.tsx
 "use client";
 
-import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useReports } from "@/features/reports/hooks/use-reports";
+import { startOfLocalDayISO, endOfLocalDayISO } from "@/lib/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3,
   TrendingUp,
-  Receipt,
   ShoppingCart,
   Users,
-  Calendar,
   Printer,
-  FileSpreadsheet,
 } from "lucide-react";
 
 export default function ReportsPage() {
   const t = useTranslations();
-  const locale = useLocale();
   const [period, setPeriod] = useState<"month" | "week" | "today" | "all">("month");
 
-  // Calculate start & end dates based on period filter
-  const getDates = () => {
+  // Calculate start & end dates based on period filter. Memoized on `period` so the
+  // React Query key is stable (a fresh `new Date()` each render caused endless refetches).
+  // Boundaries are local midnight / local end-of-day so the whole current day is included.
+  const dates = useMemo(() => {
     const now = new Date();
+    const endDate = endOfLocalDayISO(now);
     if (period === "today") {
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      return { startDate: start.toISOString(), endDate: end.toISOString() };
-    } else if (period === "week") {
-      const start = new Date(now);
-      start.setDate(now.getDate() - 7);
-      return { startDate: start.toISOString(), endDate: now.toISOString() };
-    } else if (period === "month") {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { startDate: start.toISOString(), endDate: now.toISOString() };
+      return { startDate: startOfLocalDayISO(now), endDate };
     }
-    return {};
-  };
+    if (period === "week") {
+      const start = new Date(now);
+      start.setDate(now.getDate() - 6);
+      return { startDate: startOfLocalDayISO(start), endDate };
+    }
+    if (period === "month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { startDate: startOfLocalDayISO(start), endDate };
+    }
+    // "all": the backend defaults to the current month when no range is given,
+    // so send an explicit far-past start.
+    return { startDate: startOfLocalDayISO(new Date(2000, 0, 1)), endDate };
+  }, [period]);
 
-  const dates = getDates();
   const { profitLoss, isProfitLoading, salesAnalytics, isSalesLoading } = useReports(dates);
 
   const revenue = (profitLoss?.revenuePaise || 0) / 100;
@@ -202,7 +200,7 @@ export default function ReportsPage() {
                       <div className="pl-4 space-y-1.5 pt-1 text-xs text-muted-foreground">
                         {profitLoss.expensesByCategory.map((exp) => (
                           <div key={exp.category} className="flex justify-between items-center">
-                            <span>• {t(`expenses.categories.${exp.category}` as any)} ({Math.round(exp.percentageOfExpenses)}%)</span>
+                            <span>• {t(`expenses.categories.${exp.category}`)} ({Math.round(exp.percentageOfExpenses)}%)</span>
                             <span className="rupee-display font-medium text-foreground">
                               ₹{(exp.amountPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                             </span>

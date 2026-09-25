@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { useAuth } from "@/features/auth/hooks/use-auth";
 import { useSeed } from "@/features/seed/hooks/use-seed";
@@ -26,18 +26,24 @@ import {
   Phone,
   Coins,
   CheckCircle2,
+  CreditCard,
+  Settings as SettingsIcon,
+  AlertCircle,
 } from "lucide-react";
 
 export default function MorePage() {
   const t = useTranslations();
-  const locale = useLocale();
   const router = useRouter();
   const { user, logout } = useAuth();
   const { populateDemo } = useSeed();
 
   const [seedSuccess, setSeedSuccess] = useState(false);
+  const [seedError, setSeedError] = useState("");
+  const isOwner = user?.role === "owner";
 
   const handleLoadDemo = async () => {
+    setSeedError("");
+    if (!window.confirm(t("settings.demoDataConfirm"))) return;
     try {
       await populateDemo.mutateAsync();
       setSeedSuccess(true);
@@ -45,11 +51,18 @@ export default function MorePage() {
         router.push("/dashboard");
       }, 1500);
     } catch (err) {
-      console.error(err);
+      setSeedError(err instanceof Error && err.message ? err.message : t("common.error"));
     }
   };
 
   const operationItems = [
+    {
+      href: "/credit",
+      icon: CreditCard,
+      label: t("nav.credit"),
+      desc: "Customer Udhar balances, collections & vatti",
+      color: "bg-red-500/10 text-red-600 dark:bg-red-500/20",
+    },
     {
       href: "/adaku",
       icon: Coins,
@@ -126,6 +139,13 @@ export default function MorePage() {
       desc: "Immutable system activity log",
       color: "bg-slate-500/10 text-slate-600 dark:bg-slate-500/20",
     },
+    {
+      href: "/settings",
+      icon: SettingsIcon,
+      label: t("nav.settings"),
+      desc: "Language, shop details & preferences",
+      color: "bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/20",
+    },
   ];
 
   return (
@@ -169,7 +189,8 @@ export default function MorePage() {
         </CardContent>
       </Card>
 
-      {/* 1-Click Demo Data Banner */}
+      {/* 1-Click Demo Data Banner (owner only; backend refuses once the business has transactions) */}
+      {isOwner && (
       <Card className="border-purple-500/30 bg-purple-500/5">
         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
@@ -185,6 +206,12 @@ export default function MorePage() {
             <p className="text-xs text-muted-foreground">
               Loads realistic Tamil Nadu rice varieties (Ponni, Deluxe, IR20, Samba Paddy), Thanjavur suppliers, hotel customers, weighbridge tickets, and daily closing.
             </p>
+            {seedError && (
+              <p className="text-xs text-destructive flex items-center gap-1.5 pt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {seedError}
+              </p>
+            )}
           </div>
 
           <Button
@@ -211,6 +238,7 @@ export default function MorePage() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* Section 1: Daily Operations */}
       <div className="space-y-2.5">

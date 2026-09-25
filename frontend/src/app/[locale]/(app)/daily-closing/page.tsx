@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useDailyClosing, DenominationCount } from "@/features/daily-closing/hooks/use-daily-closing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { todayLocal } from "@/lib/dates";
 import {
   CalendarCheck,
   Coins,
@@ -19,32 +20,51 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
+
+const EMPTY_DENOMINATIONS: DenominationCount = {
+  d500: 0,
+  d200: 0,
+  d100: 0,
+  d50: 0,
+  d20: 0,
+  d10: 0,
+  coins: 0,
+};
 
 export default function DailyClosingPage() {
   const t = useTranslations();
-  const locale = useLocale();
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  // Local calendar date (toISOString() would give the UTC date — yesterday before 05:30 IST)
+  const [selectedDate, setSelectedDate] = useState(() => todayLocal());
 
   const { preview, isPreviewLoading, history, submitClosing } = useDailyClosing(selectedDate);
 
-  const [denominations, setDenominations] = useState<DenominationCount>({
-    d500: 0,
-    d200: 0,
-    d100: 0,
-    d50: 0,
-    d20: 0,
-    d10: 0,
-    coins: 0,
-  });
-  const [openingCashInput, setOpeningCashInput] = useState("");
+  const [denominations, setDenominations] = useState<DenominationCount>(EMPTY_DENOMINATIONS);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // When the preview for a date arrives, prefill the counter from an existing closing so a
+  // re-lock doesn't overwrite the saved counts with zeros. Tracked per date + closing id so
+  // user edits aren't clobbered by background refetches.
+  const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
+  const prefillKey = preview ? `${selectedDate}:${preview.existingClosing?._id ?? "new"}` : null;
+  if (preview && prefillKey !== prefilledFor) {
+    setPrefilledFor(prefillKey);
+    const existing = preview.existingClosing;
+    setDenominations({ ...EMPTY_DENOMINATIONS, ...(existing?.denominations ?? {}) });
+    setNotes(existing?.notes ?? "");
+  }
+
+  const handleDateChange = (value: string) => {
+    if (!value) return;
+    setSelectedDate(value);
+    setDenominations(EMPTY_DENOMINATIONS);
+    setNotes("");
+    setError("");
+    setSuccessMessage("");
+  };
 
   const updateDenomination = (denom: keyof DenominationCount, count: string) => {
     const val = parseInt(count || "0", 10);
@@ -75,16 +95,14 @@ export default function DailyClosingPage() {
     try {
       await submitClosing.mutateAsync({
         closingDate: selectedDate,
-        openingCashPaise: openingCashInput
-          ? Math.round(parseFloat(openingCashInput) * 100)
-          : preview?.openingCashPaise || 0,
+        openingCashPaise: preview?.openingCashPaise || 0,
         denominations,
         notes,
       });
 
       setSuccessMessage("Daily closing submitted and locked successfully!");
-    } catch (err: any) {
-      setError(err.message || "Failed to submit daily closing");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to submit daily closing");
     }
   };
 
@@ -103,7 +121,7 @@ export default function DailyClosingPage() {
           <Input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => handleDateChange(e.target.value)}
             className="w-40 h-8 text-xs font-semibold"
           />
         </div>
@@ -175,7 +193,14 @@ export default function DailyClosingPage() {
                   </div>
 
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-muted-foreground">(-) Cash Paid to Suppliers:</span>
+                    <span className="text-muted-foreground">(+) Adaku Interest / Principal Received:</span>
+                    <span className="font-semibold text-success rupee-display">
+                      + ₹{((preview?.adakuReceiptsPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">(-) Cash Payments Given (Suppliers / Customers):</span>
                     <span className="font-semibold text-destructive rupee-display">
                       - ₹{((preview?.cashPaymentsGivenPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
@@ -185,6 +210,27 @@ export default function DailyClosingPage() {
                     <span className="text-muted-foreground">(-) Cash Operating Expenses:</span>
                     <span className="font-semibold text-destructive rupee-display">
                       - ₹{((preview?.cashExpensesPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">(-) Cash Paid on Purchases:</span>
+                    <span className="font-semibold text-destructive rupee-display">
+                      - ₹{((preview?.purchaseCashOutPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">(-) Employee Advances Given:</span>
+                    <span className="font-semibold text-destructive rupee-display">
+                      - ₹{((preview?.advancesPaidPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-muted-foreground">(-) Adaku Loans Paid Out:</span>
+                    <span className="font-semibold text-destructive rupee-display">
+                      - ₹{((preview?.adakuLoansOutPaise || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
