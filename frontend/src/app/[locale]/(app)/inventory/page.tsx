@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { useInventory } from "@/features/inventory/hooks/use-inventory";
+import { useInventory, useInventoryMovements } from "@/features/inventory/hooks/use-inventory";
 import { StockAdjustmentDialog } from "@/features/inventory/components/stock-adjustment-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,8 +26,8 @@ export default function InventoryPage() {
   const locale = useLocale();
   const [tab, setTab] = useState("stock");
 
-  const { overview, isLoading, isError, refetch, movementsQuery } = useInventory();
-  const { data: movements, isLoading: isMovementsLoading } = movementsQuery();
+  const { overview, isLoading, isError, refetch } = useInventory();
+  const { data: movements, isLoading: isMovementsLoading } = useInventoryMovements();
 
   const totalStockKg = overview?.totalStockKg || 0;
   const totalValuation = (overview?.totalValuationPaise || 0) / 100;

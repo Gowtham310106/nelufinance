@@ -27,12 +27,9 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const user = await login({ phone, password });
-      if (user.businessId) {
-        router.push("/dashboard");
-      } else {
-        router.push("/onboarding");
-      }
+      await login({ phone, password });
+      // The backend always links a business on login, so go straight to the dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || t("auth.loginFailed"));
     } finally {
